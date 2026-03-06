@@ -73,6 +73,7 @@ background:#64748b;
 canvas{
 background:white;
 flex:1;
+cursor:pointer;
 }
 
 .area{
@@ -121,11 +122,9 @@ Site Plan Designer
 <h3>Tools</h3>
 
 <button onclick="rotateLot()">Rotate Lot</button>
-
+<button onclick="flipLot()">Flip Lot</button>
 <button onclick="rotateNorth()">Rotate North</button>
-
 <button onclick="exportPDF()">Export A3</button>
-
 <button class="secondary" onclick="clearAll()">Clear</button>
 
 <div id="area" class="area"></div>
@@ -142,17 +141,17 @@ let lines=[]
 let points=[]
 let rotation=0
 let northRotation=0
+let flipX=1
+let draggingPoint=null
 
 function addLineRow(){
 
 let table=document.getElementById("lineTable")
-
 let row=table.insertRow()
 
 for(let i=0;i<4;i++){
 
 let cell=row.insertCell()
-
 let input=document.createElement("input")
 
 cell.appendChild(input)
@@ -169,7 +168,7 @@ let rows=document.querySelectorAll("#lineTable tr")
 
 rows.forEach((row,i)=>{
 
-if(i===0) return
+if(i===0)return
 
 let cells=row.querySelectorAll("input")
 
@@ -200,7 +199,6 @@ let y=0
 lines.forEach((l,i)=>{
 
 let turnAngle=180-l.angle
-
 angle+=turnAngle*Math.PI/180
 
 if(!isNaN(l.length)){
@@ -229,33 +227,38 @@ return pts
 
 }
 
-function rotatePoints(pts,rot){
+function transformPoints(pts){
 
-let rad=rot*Math.PI/180
+let rad=rotation*Math.PI/180
 
-return pts.map(p=>[
-p[0]*Math.cos(rad)-p[1]*Math.sin(rad),
-p[0]*Math.sin(rad)+p[1]*Math.cos(rad)
-])
+return pts.map(p=>{
+
+let x=p[0]*flipX
+let y=p[1]
+
+return[
+x*Math.cos(rad)-y*Math.sin(rad),
+x*Math.sin(rad)+y*Math.cos(rad)
+]
+
+})
 
 }
 
 function draw(){
 
 let canvas=document.getElementById("canvas")
-
 let ctx=canvas.getContext("2d")
 
 ctx.clearRect(0,0,canvas.width,canvas.height)
 
-points=rotatePoints(calculatePoints(),rotation)
+points=transformPoints(calculatePoints())
 
 let xs=points.map(p=>p[0])
 let ys=points.map(p=>p[1])
 
 let minx=Math.min(...xs)
 let maxx=Math.max(...xs)
-
 let miny=Math.min(...ys)
 let maxy=Math.max(...ys)
 
@@ -278,10 +281,8 @@ screen.push([x,y])
 ctx.beginPath()
 
 screen.forEach((p,i)=>{
-
-if(i===0) ctx.moveTo(p[0],p[1])
+if(i===0)ctx.moveTo(p[0],p[1])
 else ctx.lineTo(p[0],p[1])
-
 })
 
 ctx.stroke()
@@ -297,7 +298,7 @@ ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
 
 }
 
-screen.forEach(p=>{
+screen.forEach((p,i)=>{
 
 ctx.beginPath()
 ctx.arc(p[0],p[1],5,0,Math.PI*2)
@@ -318,15 +319,12 @@ function drawNorth(ctx){
 ctx.save()
 
 ctx.translate(1050,120)
-
 ctx.rotate(northRotation*Math.PI/180)
 
 ctx.beginPath()
-
 ctx.moveTo(0,-30)
 ctx.lineTo(10,10)
 ctx.lineTo(-10,10)
-
 ctx.closePath()
 
 ctx.fill()
@@ -340,6 +338,13 @@ ctx.restore()
 function rotateLot(){
 
 rotation+=90
+draw()
+
+}
+
+function flipLot(){
+
+flipX*=-1
 draw()
 
 }
@@ -385,7 +390,6 @@ let ys=points.map(p=>p[1])
 
 let minx=Math.min(...xs)
 let maxx=Math.max(...xs)
-
 let miny=Math.min(...ys)
 let maxy=Math.max(...ys)
 
@@ -410,7 +414,16 @@ pdf.line(x1,y1,x2,y2)
 pdf.text("SITE PLAN",20,20)
 pdf.text("Scale 1:100 @ A3",20,28)
 
-pdf.addImage("logos.png","PNG",180,380,100,25)
+let pageWidth=pdf.internal.pageSize.getWidth()
+let pageHeight=pdf.internal.pageSize.getHeight()
+
+let logoWidth=100
+let logoHeight=25
+
+let logoX=pageWidth-logoWidth-8
+let logoY=pageHeight-logoHeight-8
+
+pdf.addImage("logos.png","PNG",logoX,logoY,logoWidth,logoHeight)
 
 pdf.save("site-plan.pdf")
 
@@ -421,11 +434,11 @@ function clearAll(){
 lines=[]
 points=[]
 rotation=0
+flipX=1
 
 document.getElementById("area").innerText=""
 
 let ctx=document.getElementById("canvas").getContext("2d")
-
 ctx.clearRect(0,0,1200,800)
 
 }
@@ -433,5 +446,4 @@ ctx.clearRect(0,0,1200,800)
 </script>
 
 </body>
-
 </html>
