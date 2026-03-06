@@ -148,11 +148,8 @@ let points=[]
 let rotation=0
 let flipX=1
 let northRotation=0
-
 let panX=0
 let panY=0
-
-let dimensionOffset=15
 
 function addLineRow(){
 
@@ -160,11 +157,9 @@ let table=document.getElementById("lineTable")
 let row=table.insertRow()
 
 for(let i=0;i<4;i++){
-
 let cell=row.insertCell()
 let input=document.createElement("input")
 cell.appendChild(input)
-
 }
 
 }
@@ -177,7 +172,7 @@ let rows=document.querySelectorAll("#lineTable tr")
 
 rows.forEach((row,i)=>{
 
-if(i===0)return
+if(i===0) return
 
 let cells=row.querySelectorAll("input")
 
@@ -190,9 +185,7 @@ let s=parseFloat(cells[3].value)||0
 let angle=d+(m/60)+(s/3600)
 
 if(!isNaN(length)){
-
 lines.push({length,angle})
-
 }
 
 })
@@ -229,19 +222,15 @@ document.getElementById("startDirection").value
 let x=0
 let y=0
 
-lines.forEach((l,i)=>{
-
-if(i>0){
-
-let turn=180-l.angle
-direction+=turn*Math.PI/180
-
-}
+lines.forEach((l)=>{
 
 x+=l.length*Math.cos(direction)
 y+=l.length*Math.sin(direction)
 
 pts.push([x,y])
+
+let turn=(180-l.angle)*Math.PI/180
+direction+=turn
 
 })
 
@@ -292,18 +281,15 @@ let scale=Math.min(900/(w||1),600/(h||1))
 let screen=[]
 
 points.forEach(p=>{
-
 let x=(p[0]-minx)*scale+150
 let y=700-(p[1]-miny)*scale
-
 screen.push([x,y])
-
 })
 
 ctx.beginPath()
 
 screen.forEach((p,i)=>{
-if(i===0)ctx.moveTo(p[0],p[1])
+if(i===0) ctx.moveTo(p[0],p[1])
 else ctx.lineTo(p[0],p[1])
 })
 
@@ -312,10 +298,7 @@ ctx.stroke()
 drawDimensions(ctx,screen)
 drawCornerAngles(ctx,screen)
 
-drawNorth(ctx)
-
 let area=polygonArea(points)
-
 document.getElementById("area").innerText="Area: "+area.toFixed(2)+" m²"
 
 }
@@ -337,31 +320,10 @@ let len=Math.sqrt(dx*dx+dy*dy)
 let nx=-dy/len
 let ny=dx/len
 
-let off=dimensionOffset
+let offset=20
 
-let x1=p1[0]+nx*off
-let y1=p1[1]+ny*off
-
-let x2=p2[0]+nx*off
-let y2=p2[1]+ny*off
-
-ctx.beginPath()
-ctx.moveTo(x1,y1)
-ctx.lineTo(x2,y2)
-ctx.stroke()
-
-ctx.beginPath()
-ctx.moveTo(p1[0],p1[1])
-ctx.lineTo(x1,y1)
-ctx.stroke()
-
-ctx.beginPath()
-ctx.moveTo(p2[0],p2[1])
-ctx.lineTo(x2,y2)
-ctx.stroke()
-
-let mx=(x1+x2)/2
-let my=(y1+y2)/2
+let mx=(p1[0]+p2[0])/2 + nx*offset
+let my=(p1[1]+p2[1])/2 + ny*offset
 
 ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
 
@@ -376,34 +338,11 @@ ctx.font="11px Arial"
 for(let i=1;i<screen.length-1;i++){
 
 let p=screen[i]
-
 let angle=lines[i].angle
 
 ctx.fillText(angle.toFixed(0)+"°",p[0]+6,p[1]-6)
 
 }
-
-}
-
-function drawNorth(ctx){
-
-ctx.save()
-
-ctx.translate(1050,120)
-ctx.rotate(northRotation*Math.PI/180)
-
-ctx.beginPath()
-ctx.moveTo(0,-30)
-ctx.lineTo(10,10)
-ctx.lineTo(-10,10)
-
-ctx.closePath()
-
-ctx.fill()
-
-ctx.fillText("N",-4,-35)
-
-ctx.restore()
 
 }
 
@@ -414,11 +353,6 @@ draw()
 
 function flipLot(){
 flipX*=-1
-draw()
-}
-
-function rotateNorth(){
-northRotation+=10
 draw()
 }
 
@@ -454,70 +388,21 @@ let pageHeight=pdf.internal.pageSize.getHeight()
 
 pdf.rect(8,8,pageWidth-16,pageHeight-16)
 
-let xs=points.map(p=>p[0])
-let ys=points.map(p=>p[1])
-
-let minx=Math.min(...xs)
-let maxx=Math.max(...xs)
-let miny=Math.min(...ys)
-let maxy=Math.max(...ys)
-
-let lotWidth=maxx-minx
-let lotHeight=maxy-miny
-
-let scales=[100,200,250,500]
-let chosenScale=100
-
-scales.forEach(s=>{
-if(lotWidth*s/1000<200 && lotHeight*s/1000<300){
-chosenScale=s
-}
-})
-
-let scale=1000/chosenScale
-
-let offsetX=(pageWidth-lotWidth*scale)/2-minx*scale
-let offsetY=(pageHeight-lotHeight*scale)/2
+let scale=10
 
 for(let i=0;i<points.length-1;i++){
 
-let x1=points[i][0]*scale+offsetX
-let y1=(maxy-points[i][1])*scale+offsetY
+let x1=points[i][0]*scale+150
+let y1=400-(points[i][1]*scale)
 
-let x2=points[i+1][0]*scale+offsetX
-let y2=(maxy-points[i+1][1])*scale+offsetY
+let x2=points[i+1][0]*scale+150
+let y2=400-(points[i+1][1]*scale)
 
 pdf.line(x1,y1,x2,y2)
 
-let mx=(x1+x2)/2
-let my=(y1+y2)/2
-
-pdf.text(lines[i].length.toFixed(2)+"m",mx,my)
-
 }
 
-let area=polygonArea(points)
-
 pdf.text("SITE PLAN",20,20)
-pdf.text("Scale 1:"+chosenScale+" @ A3",20,28)
-pdf.text("Lot Area: "+area.toFixed(2)+" m²",20,36)
-
-let nx=pageWidth-40
-let ny=40
-
-pdf.line(nx,ny,nx,ny-20)
-pdf.line(nx,ny-20,nx-4,ny-14)
-pdf.line(nx,ny-20,nx+4,ny-14)
-
-pdf.text("N",nx-2,ny-24)
-
-let logoWidth=100
-let logoHeight=25
-
-let logoX=pageWidth-logoWidth-8
-let logoY=pageHeight-logoHeight-8
-
-pdf.addImage("logos.png","PNG",logoX,logoY,logoWidth,logoHeight)
 
 pdf.save("site-plan.pdf")
 
@@ -537,7 +422,7 @@ canvas.dataset.drag="0"
 
 canvas.addEventListener("mousemove",e=>{
 
-if(canvas.dataset.drag!=="1")return
+if(canvas.dataset.drag!=="1") return
 
 let dx=e.clientX-canvas.dataset.x
 let dy=e.clientY-canvas.dataset.y
