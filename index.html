@@ -59,13 +59,14 @@ padding:4px;
 }
 
 button{
-margin-top:10px;
+margin-top:8px;
 padding:8px 12px;
 border:none;
 border-radius:6px;
 background:#2563eb;
 color:white;
 cursor:pointer;
+width:100%;
 }
 
 canvas{
@@ -117,6 +118,15 @@ flex:1;
 
 <button onclick="addLineRow()">Add Line</button>
 <button onclick="generateLot()">Generate Lot</button>
+
+<h3>Tools</h3>
+
+<button onclick="rotateLot()">Rotate Lot</button>
+<button onclick="flipLot()">Flip Lot</button>
+<button onclick="clearLot()">Clear</button>
+
+<h3>Export</h3>
+
 <button onclick="exportPDF()">Generate PDF</button>
 
 </div>
@@ -129,6 +139,8 @@ flex:1;
 
 let lines=[]
 let points=[]
+let rotation=0
+let flip=1
 
 function addLineRow(){
 
@@ -178,7 +190,9 @@ let s=parseFloat(inputs[3].value)||0
 let angle=d+(m/60)+(s/3600)
 
 if(!isNaN(length)){
+
 lines.push({length,angle,type})
+
 }
 
 })
@@ -210,9 +224,13 @@ pts.push([x,y])
 let turn
 
 if(l.type==="interior"){
+
 turn=(180-l.angle)*Math.PI/180
+
 }else{
+
 turn=l.angle*Math.PI/180
+
 }
 
 if(mode==="cw") direction-=turn
@@ -232,6 +250,15 @@ let ctx=canvas.getContext("2d")
 ctx.clearRect(0,0,canvas.width,canvas.height)
 
 points=calculatePoints()
+
+points=points.map(p=>[p[0]*flip,p[1]])
+
+let rad=rotation*Math.PI/180
+
+points=points.map(p=>[
+p[0]*Math.cos(rad)-p[1]*Math.sin(rad),
+p[0]*Math.sin(rad)+p[1]*Math.cos(rad)
+])
 
 let xs=points.map(p=>p[0])
 let ys=points.map(p=>p[1])
@@ -291,6 +318,45 @@ ctx.fillText(lines[i-1].angle.toFixed(0)+"°",p[0]+5,p[1]-5)
 
 }
 
+function rotateLot(){
+
+rotation+=90
+draw()
+
+}
+
+function flipLot(){
+
+flip*=-1
+draw()
+
+}
+
+function clearLot(){
+
+lines=[]
+points=[]
+rotation=0
+flip=1
+
+let table=document.getElementById("lineTable")
+
+while(table.rows.length>1){
+
+table.deleteRow(1)
+
+}
+
+addLineRow()
+addLineRow()
+addLineRow()
+
+let canvas=document.getElementById("canvas")
+let ctx=canvas.getContext("2d")
+ctx.clearRect(0,0,canvas.width,canvas.height)
+
+}
+
 function exportPDF(){
 
 generateLot()
@@ -343,34 +409,21 @@ pdf.text(lines[i].length.toFixed(2)+"m",mx,my)
 
 }
 
-for(let i=1;i<pts.length;i++){
-
-if(lines[i-1]){
-
-let x=pts[i][0]*scale+offsetX
-let y=(maxy-pts[i][1])*scale+offsetY
-
-pdf.text(lines[i-1].angle.toFixed(0)+"°",x+2,y-2)
-
-}
-
-}
-
 pdf.setFontSize(14)
 pdf.text("SITE PLAN",20,20)
 
 pdf.setFontSize(10)
 pdf.text("Scale 1:100 @ A3",20,28)
 
+let img=new Image()
+
+img.onload=function(){
+
 let logoWidth=100
 let logoHeight=25
 
 let logoX=pageWidth-logoWidth-8
 let logoY=pageHeight-logoHeight-8
-
-let img=new Image()
-
-img.onload=function(){
 
 pdf.addImage(img,"PNG",logoX,logoY,logoWidth,logoHeight)
 
