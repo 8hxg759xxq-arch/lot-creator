@@ -1,9 +1,8 @@
 <!DOCTYPE html>
 <html>
-
 <head>
 
-<title>Site Plan Designer</title>
+<title>Lot Site Plan Designer</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -87,15 +86,22 @@ font-weight:600;
 
 <body>
 
-<header>
-Site Plan Designer
-</header>
+<header>Lot Site Plan Designer</header>
 
 <div id="container">
 
 <div class="controls">
 
-<h3>Boundary Input (Internal Angles)</h3>
+<h3>Start Direction</h3>
+
+<select id="startDirection">
+<option value="0">East</option>
+<option value="90">North</option>
+<option value="180">West</option>
+<option value="270">South</option>
+</select>
+
+<h3>Boundary Input (Interior Angles)</h3>
 
 <table id="lineTable">
 
@@ -117,6 +123,7 @@ Site Plan Designer
 
 <button onclick="addLineRow()">Add Line</button>
 <button onclick="generateLot()">Generate Lot</button>
+<button onclick="closeLot()">Close Lot</button>
 
 <h3>Tools</h3>
 
@@ -139,14 +146,13 @@ Site Plan Designer
 let lines=[]
 let points=[]
 let rotation=0
-let northRotation=0
 let flipX=1
+let northRotation=0
 
 let panX=0
 let panY=0
-let draggingCanvas=false
-let lastMouseX=0
-let lastMouseY=0
+
+let dimensionOffset=15
 
 function addLineRow(){
 
@@ -183,9 +189,30 @@ let s=parseFloat(cells[3].value)||0
 
 let angle=d+(m/60)+(s/3600)
 
+if(!isNaN(length)){
+
 lines.push({length,angle})
 
+}
+
 })
+
+draw()
+
+}
+
+function closeLot(){
+
+let pts=calculatePoints()
+
+let last=pts[pts.length-1]
+
+let dx=0-last[0]
+let dy=0-last[1]
+
+let length=Math.sqrt(dx*dx+dy*dy)
+
+lines.push({length:length,angle:90})
 
 draw()
 
@@ -195,34 +222,26 @@ function calculatePoints(){
 
 let pts=[[0,0]]
 
-let angle=0
+let direction=parseFloat(
+document.getElementById("startDirection").value
+)*Math.PI/180
+
 let x=0
 let y=0
 
 lines.forEach((l,i)=>{
 
-let turnAngle=180-l.angle
-angle+=turnAngle*Math.PI/180
+if(i>0){
 
-if(!isNaN(l.length)){
-
-x+=l.length*Math.cos(angle)
-y+=l.length*Math.sin(angle)
-
-pts.push([x,y])
-
-}else{
-
-let last=pts[pts.length-1]
-
-let dx=0-last[0]
-let dy=0-last[1]
-
-pts.push([0,0])
-
-lines[i].length=Math.sqrt(dx*dx+dy*dy)
+let turn=180-l.angle
+direction+=turn*Math.PI/180
 
 }
+
+x+=l.length*Math.cos(direction)
+y+=l.length*Math.sin(direction)
+
+pts.push([x,y])
 
 })
 
@@ -242,7 +261,7 @@ let y=p[1]
 let rx=x*Math.cos(rad)-y*Math.sin(rad)
 let ry=x*Math.sin(rad)+y*Math.cos(rad)
 
-return [rx+panX, ry+panY]
+return [rx+panX,ry+panY]
 
 })
 
@@ -290,27 +309,79 @@ else ctx.lineTo(p[0],p[1])
 
 ctx.stroke()
 
-ctx.font="12px Arial"
+drawDimensions(ctx,screen)
+drawCornerAngles(ctx,screen)
+
+drawNorth(ctx)
+
+let area=polygonArea(points)
+
+document.getElementById("area").innerText="Area: "+area.toFixed(2)+" m²"
+
+}
+
+function drawDimensions(ctx,screen){
+
+ctx.font="11px Arial"
 
 for(let i=0;i<screen.length-1;i++){
 
-let mx=(screen[i][0]+screen[i+1][0])/2
-let my=(screen[i][1]+screen[i+1][1])/2
+let p1=screen[i]
+let p2=screen[i+1]
+
+let dx=p2[0]-p1[0]
+let dy=p2[1]-p1[1]
+
+let len=Math.sqrt(dx*dx+dy*dy)
+
+let nx=-dy/len
+let ny=dx/len
+
+let off=dimensionOffset
+
+let x1=p1[0]+nx*off
+let y1=p1[1]+ny*off
+
+let x2=p2[0]+nx*off
+let y2=p2[1]+ny*off
+
+ctx.beginPath()
+ctx.moveTo(x1,y1)
+ctx.lineTo(x2,y2)
+ctx.stroke()
+
+ctx.beginPath()
+ctx.moveTo(p1[0],p1[1])
+ctx.lineTo(x1,y1)
+ctx.stroke()
+
+ctx.beginPath()
+ctx.moveTo(p2[0],p2[1])
+ctx.lineTo(x2,y2)
+ctx.stroke()
+
+let mx=(x1+x2)/2
+let my=(y1+y2)/2
 
 ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
 
 }
 
-screen.forEach(p=>{
-ctx.beginPath()
-ctx.arc(p[0],p[1],5,0,Math.PI*2)
-ctx.fill()
-})
+}
 
-drawNorth(ctx)
+function drawCornerAngles(ctx,screen){
 
-let area=polygonArea(points)
-document.getElementById("area").innerText="Area: "+area.toFixed(2)+" m²"
+ctx.font="11px Arial"
+
+for(let i=1;i<screen.length-1;i++){
+
+let p=screen[i]
+
+let angle=lines[i].angle
+
+ctx.fillText(angle.toFixed(0)+"°",p[0]+6,p[1]-6)
+
+}
 
 }
 
@@ -325,6 +396,7 @@ ctx.beginPath()
 ctx.moveTo(0,-30)
 ctx.lineTo(10,10)
 ctx.lineTo(-10,10)
+
 ctx.closePath()
 
 ctx.fill()
@@ -377,7 +449,10 @@ unit:"mm",
 format:"a3"
 })
 
-let scale=10
+let pageWidth=pdf.internal.pageSize.getWidth()
+let pageHeight=pdf.internal.pageSize.getHeight()
+
+pdf.rect(8,8,pageWidth-16,pageHeight-16)
 
 let xs=points.map(p=>p[0])
 let ys=points.map(p=>p[1])
@@ -387,11 +462,22 @@ let maxx=Math.max(...xs)
 let miny=Math.min(...ys)
 let maxy=Math.max(...ys)
 
-let lotWidth=(maxx-minx)*scale
-let lotHeight=(maxy-miny)*scale
+let lotWidth=maxx-minx
+let lotHeight=maxy-miny
 
-let offsetX=(297-lotWidth)/2-minx*scale
-let offsetY=(420-lotHeight)/2
+let scales=[100,200,250,500]
+let chosenScale=100
+
+scales.forEach(s=>{
+if(lotWidth*s/1000<200 && lotHeight*s/1000<300){
+chosenScale=s
+}
+})
+
+let scale=1000/chosenScale
+
+let offsetX=(pageWidth-lotWidth*scale)/2-minx*scale
+let offsetY=(pageHeight-lotHeight*scale)/2
 
 for(let i=0;i<points.length-1;i++){
 
@@ -403,13 +489,27 @@ let y2=(maxy-points[i+1][1])*scale+offsetY
 
 pdf.line(x1,y1,x2,y2)
 
+let mx=(x1+x2)/2
+let my=(y1+y2)/2
+
+pdf.text(lines[i].length.toFixed(2)+"m",mx,my)
+
 }
 
-pdf.text("SITE PLAN",20,20)
-pdf.text("Scale 1:100 @ A3",20,28)
+let area=polygonArea(points)
 
-let pageWidth=pdf.internal.pageSize.getWidth()
-let pageHeight=pdf.internal.pageSize.getHeight()
+pdf.text("SITE PLAN",20,20)
+pdf.text("Scale 1:"+chosenScale+" @ A3",20,28)
+pdf.text("Lot Area: "+area.toFixed(2)+" m²",20,36)
+
+let nx=pageWidth-40
+let ny=40
+
+pdf.line(nx,ny,nx,ny-20)
+pdf.line(nx,ny-20,nx-4,ny-14)
+pdf.line(nx,ny-20,nx+4,ny-14)
+
+pdf.text("N",nx-2,ny-24)
 
 let logoWidth=100
 let logoHeight=25
@@ -426,29 +526,27 @@ pdf.save("site-plan.pdf")
 let canvas=document.getElementById("canvas")
 
 canvas.addEventListener("mousedown",e=>{
-draggingCanvas=true
-lastMouseX=e.clientX
-lastMouseY=e.clientY
-canvas.style.cursor="grabbing"
+canvas.dataset.drag="1"
+canvas.dataset.x=e.clientX
+canvas.dataset.y=e.clientY
 })
 
 canvas.addEventListener("mouseup",()=>{
-draggingCanvas=false
-canvas.style.cursor="grab"
+canvas.dataset.drag="0"
 })
 
 canvas.addEventListener("mousemove",e=>{
 
-if(!draggingCanvas)return
+if(canvas.dataset.drag!=="1")return
 
-let dx=e.clientX-lastMouseX
-let dy=e.clientY-lastMouseY
+let dx=e.clientX-canvas.dataset.x
+let dy=e.clientY-canvas.dataset.y
 
 panX+=dx*0.02
 panY-=dy*0.02
 
-lastMouseX=e.clientX
-lastMouseY=e.clientY
+canvas.dataset.x=e.clientX
+canvas.dataset.y=e.clientY
 
 draw()
 
@@ -473,5 +571,4 @@ ctx.clearRect(0,0,1200,800)
 </script>
 
 </body>
-
 </html>
