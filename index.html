@@ -2,7 +2,7 @@
 <html>
 <head>
 
-<title>Lot Site Plan Designer</title>
+<title>Lot Designer</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -129,7 +129,7 @@ font-weight:600;
 
 <button onclick="rotateLot()">Rotate Lot</button>
 <button onclick="flipLot()">Flip Lot</button>
-<button onclick="exportPDF()">Export A3</button>
+<button onclick="exportPDF()">Export A3 PDF</button>
 
 <div id="area" class="area"></div>
 
@@ -151,7 +151,6 @@ let panY=0
 function addLineRow(){
 
 let table=document.getElementById("lineTable")
-
 let row=table.insertRow()
 
 for(let i=0;i<4;i++){
@@ -185,14 +184,14 @@ rows.forEach((row,i)=>{
 
 if(i===0)return
 
-let cells=row.querySelectorAll("input")
+let inputs=row.querySelectorAll("input")
 let type=row.querySelector("select").value
 
-let length=parseFloat(cells[0].value)
+let length=parseFloat(inputs[0].value)
 
-let d=parseFloat(cells[1].value)||0
-let m=parseFloat(cells[2].value)||0
-let s=parseFloat(cells[3].value)||0
+let d=parseFloat(inputs[1].value)||0
+let m=parseFloat(inputs[2].value)||0
+let s=parseFloat(inputs[3].value)||0
 
 let angle=d+(m/60)+(s/3600)
 
@@ -219,7 +218,7 @@ let mode=document.getElementById("directionMode").value
 let x=0
 let y=0
 
-lines.forEach((l)=>{
+lines.forEach(l=>{
 
 x+=l.length*Math.cos(direction)
 y+=l.length*Math.sin(direction)
@@ -259,7 +258,7 @@ let dy=0-last[1]
 
 let length=Math.sqrt(dx*dx+dy*dy)
 
-alert("Closing boundary length = "+length.toFixed(2)+"m")
+alert("Closing boundary length = "+length.toFixed(2)+" m")
 
 }
 
@@ -299,16 +298,14 @@ screen.push([x,y])
 ctx.beginPath()
 
 screen.forEach((p,i)=>{
-
 if(i===0)ctx.moveTo(p[0],p[1])
 else ctx.lineTo(p[0],p[1])
-
 })
 
 ctx.stroke()
 
 drawDimensions(ctx,screen)
-drawCornerAngles(ctx,screen)
+drawAngles(ctx,screen)
 
 let area=polygonArea(points)
 
@@ -344,29 +341,42 @@ ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
 
 }
 
-function drawCornerAngles(ctx,screen){
+function drawAngles(ctx,screen){
 
 ctx.font="11px Arial"
 
 for(let i=1;i<screen.length-1;i++){
 
 let p=screen[i]
-let angle=lines[i].angle
 
-ctx.fillText(angle.toFixed(0)+"°",p[0]+6,p[1]-6)
+ctx.fillText(lines[i].angle.toFixed(0)+"°",p[0]+6,p[1]-6)
 
 }
 
 }
 
 function rotateLot(){
+
 rotation+=90
+
+points=points.map(p=>[
+p[1],
+-p[0]
+])
+
 draw()
+
 }
 
 function flipLot(){
-flipX*=-1
+
+points=points.map(p=>[
+-p[0],
+p[1]
+])
+
 draw()
+
 }
 
 function polygonArea(points){
@@ -388,6 +398,8 @@ return Math.abs(area/2)
 
 function exportPDF(){
 
+generateLot()
+
 const {jsPDF}=window.jspdf
 
 let pdf=new jsPDF({
@@ -401,8 +413,10 @@ let pageHeight=pdf.internal.pageSize.getHeight()
 
 pdf.rect(8,8,pageWidth-16,pageHeight-16)
 
-let xs=points.map(p=>p[0])
-let ys=points.map(p=>p[1])
+let pts=calculatePoints()
+
+let xs=pts.map(p=>p[0])
+let ys=pts.map(p=>p[1])
 
 let minx=Math.min(...xs)
 let maxx=Math.max(...xs)
@@ -412,20 +426,21 @@ let maxy=Math.max(...ys)
 let lotWidth=maxx-minx
 let lotHeight=maxy-miny
 
-let scale=Math.min(260/(lotWidth||1),360/(lotHeight||1))
+let scale=Math.min(250/(lotWidth||1),340/(lotHeight||1))
 
 let offsetX=(pageWidth-lotWidth*scale)/2-minx*scale
 let offsetY=(pageHeight-lotHeight*scale)/2
 
 pdf.setDrawColor(200,0,0)
+pdf.setLineWidth(0.6)
 
-for(let i=0;i<points.length-1;i++){
+for(let i=0;i<pts.length-1;i++){
 
-let x1=points[i][0]*scale+offsetX
-let y1=(maxy-points[i][1])*scale+offsetY
+let x1=pts[i][0]*scale+offsetX
+let y1=(maxy-pts[i][1])*scale+offsetY
 
-let x2=points[i+1][0]*scale+offsetX
-let y2=(maxy-points[i+1][1])*scale+offsetY
+let x2=pts[i+1][0]*scale+offsetX
+let y2=(maxy-pts[i+1][1])*scale+offsetY
 
 pdf.line(x1,y1,x2,y2)
 
@@ -439,9 +454,12 @@ pdf.text(lines[i].length.toFixed(2)+"m",mx,my)
 
 }
 
-let area=polygonArea(points)
+let area=polygonArea(pts)
 
+pdf.setFontSize(14)
 pdf.text("SITE PLAN",20,20)
+
+pdf.setFontSize(10)
 pdf.text("Lot Area: "+area.toFixed(2)+" m²",20,30)
 
 let nx=pageWidth-40
