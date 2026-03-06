@@ -29,27 +29,34 @@ height:calc(100vh - 52px);
 }
 
 .controls{
-width:280px;
+width:340px;
 background:white;
 padding:20px;
 box-shadow:2px 0 8px rgba(0,0,0,0.08);
 overflow:auto;
 }
 
-.controls h3{
-margin-top:25px;
+table{
+width:100%;
+border-collapse:collapse;
+font-size:13px;
+}
+
+th,td{
+border-bottom:1px solid #eee;
+padding:6px;
+text-align:center;
 }
 
 input{
 width:60px;
-padding:6px;
-margin-right:4px;
+padding:4px;
 border:1px solid #ddd;
 border-radius:4px;
 }
 
 button{
-margin-top:6px;
+margin-top:10px;
 padding:8px 12px;
 border:none;
 border-radius:6px;
@@ -63,22 +70,13 @@ button.secondary{
 background:#64748b;
 }
 
-button:hover{
-opacity:0.9;
-}
-
 canvas{
 background:white;
 flex:1;
 }
 
-.line-list{
-font-size:13px;
-margin-top:10px;
-}
-
 .area{
-margin-top:12px;
+margin-top:15px;
 font-weight:600;
 }
 
@@ -96,32 +94,39 @@ Site Plan Designer
 
 <div class="controls">
 
-Length (m)<br>
-<input id="length">
+<h3>Boundary Input</h3>
 
-<br><br>
+<table id="lineTable">
 
-Angle (D M S)<br>
+<tr>
+<th>Length</th>
+<th>°</th>
+<th>'</th>
+<th>"</th>
+</tr>
 
-<input id="deg" placeholder="°">
-<input id="min" placeholder="'">
-<input id="sec" placeholder='"'>
+<tr>
+<td><input></td>
+<td><input></td>
+<td><input></td>
+<td><input></td>
+</tr>
 
-<br>
+</table>
 
-<button onclick="addLine()">Add Line</button>
+<button onclick="addLineRow()">Add Line</button>
+
+<button onclick="generateLot()">Generate Lot</button>
 
 <h3>Tools</h3>
 
-<button onclick="draw()">Draw</button>
-<button onclick="rotateLot()">Rotate 90°</button>
+<button onclick="rotateLot()">Rotate Lot</button>
+
 <button onclick="rotateNorth()">Rotate North</button>
+
 <button onclick="exportPDF()">Export A3</button>
-<button class="secondary" onclick="clearLines()">Clear</button>
 
-<h3>Lines</h3>
-
-<div id="lines" class="line-list"></div>
+<button class="secondary" onclick="clearAll()">Clear</button>
 
 <div id="area" class="area"></div>
 
@@ -134,45 +139,57 @@ Angle (D M S)<br>
 <script>
 
 let lines=[]
+let points=[]
 let rotation=0
 let northRotation=0
-let points=[]
-let draggingIndex=null
 
-function dmsToDeg(d,m,s){
-d=parseFloat(d)||0
-m=parseFloat(m)||0
-s=parseFloat(s)||0
-return d+(m/60)+(s/3600)
+function addLineRow(){
+
+let table=document.getElementById("lineTable")
+
+let row=table.insertRow()
+
+for(let i=0;i<4;i++){
+
+let cell=row.insertCell()
+
+let input=document.createElement("input")
+
+cell.appendChild(input)
+
 }
 
-function addLine(){
+}
 
-let length=parseFloat(document.getElementById("length").value)
+function generateLot(){
 
-let d=document.getElementById("deg").value
-let m=document.getElementById("min").value
-let s=document.getElementById("sec").value
+lines=[]
 
-let angle=dmsToDeg(d,m,s)
+let rows=document.querySelectorAll("#lineTable tr")
 
-if(isNaN(length)) return
+rows.forEach((row,i)=>{
+
+if(i===0) return
+
+let cells=row.querySelectorAll("input")
+
+let length=parseFloat(cells[0].value)
+
+let d=parseFloat(cells[1].value)||0
+let m=parseFloat(cells[2].value)||0
+let s=parseFloat(cells[3].value)||0
+
+let angle=d+(m/60)+(s/3600)
+
+if(!isNaN(length)){
 
 lines.push({length,angle})
 
-updateLineList()
-
 }
 
-function updateLineList(){
-
-let html=""
-
-lines.forEach((l,i)=>{
-html+=`Line ${i+1}: ${l.length}m @ ${l.angle.toFixed(2)}°<br>`
 })
 
-document.getElementById("lines").innerHTML=html
+draw()
 
 }
 
@@ -184,7 +201,7 @@ let angle=0
 let x=0
 let y=0
 
-for(let l of lines){
+lines.forEach(l=>{
 
 angle+=l.angle*Math.PI/180
 
@@ -193,7 +210,7 @@ y+=l.length*Math.sin(angle)
 
 pts.push([x,y])
 
-}
+})
 
 return pts
 
@@ -213,6 +230,7 @@ p[0]*Math.sin(rad)+p[1]*Math.cos(rad)
 function draw(){
 
 let canvas=document.getElementById("canvas")
+
 let ctx=canvas.getContext("2d")
 
 ctx.clearRect(0,0,canvas.width,canvas.height)
@@ -236,16 +254,21 @@ let scale=Math.min(900/(w||1),600/(h||1))
 let screen=[]
 
 points.forEach(p=>{
+
 let x=(p[0]-minx)*scale+150
 let y=700-(p[1]-miny)*scale
+
 screen.push([x,y])
+
 })
 
 ctx.beginPath()
 
 screen.forEach((p,i)=>{
+
 if(i===0) ctx.moveTo(p[0],p[1])
 else ctx.lineTo(p[0],p[1])
+
 })
 
 ctx.stroke()
@@ -261,13 +284,15 @@ ctx.fillText(lines[i].length+"m",mx,my)
 
 }
 
-screen.forEach((p,i)=>{
+screen.forEach(p=>{
+
 ctx.beginPath()
 ctx.arc(p[0],p[1],5,0,Math.PI*2)
 ctx.fill()
+
 })
 
-drawNorthArrow(ctx)
+drawNorth(ctx)
 
 let area=polygonArea(points)
 
@@ -275,43 +300,27 @@ document.getElementById("area").innerText="Area: "+area.toFixed(2)+" m²"
 
 }
 
-function drawNorthArrow(ctx){
-
-let x=1050
-let y=120
+function drawNorth(ctx){
 
 ctx.save()
 
-ctx.translate(x,y)
+ctx.translate(1050,120)
+
 ctx.rotate(northRotation*Math.PI/180)
 
 ctx.beginPath()
+
 ctx.moveTo(0,-30)
 ctx.lineTo(10,10)
 ctx.lineTo(-10,10)
+
 ctx.closePath()
+
 ctx.fill()
 
 ctx.fillText("N",-4,-35)
 
 ctx.restore()
-
-}
-
-function polygonArea(points){
-
-let area=0
-
-for(let i=0;i<points.length;i++){
-
-let j=(i+1)%points.length
-
-area+=points[i][0]*points[j][1]
-area-=points[j][0]*points[i][1]
-
-}
-
-return Math.abs(area/2)
 
 }
 
@@ -329,16 +338,20 @@ draw()
 
 }
 
-function clearLines(){
+function polygonArea(points){
 
-lines=[]
-rotation=0
+let area=0
 
-document.getElementById("lines").innerHTML=""
-document.getElementById("area").innerText=""
+for(let i=0;i<points.length;i++){
 
-let ctx=document.getElementById("canvas").getContext("2d")
-ctx.clearRect(0,0,1200,800)
+let j=(i+1)%points.length
+
+area+=points[i][0]*points[j][1]
+area-=points[j][0]*points[i][1]
+
+}
+
+return Math.abs(area/2)
 
 }
 
@@ -382,6 +395,7 @@ pdf.line(x1,y1,x2,y2)
 }
 
 pdf.text("SITE PLAN",20,20)
+
 pdf.text("Scale 1:100 @ A3",20,28)
 
 pdf.addImage("logos.png","PNG",180,380,100,25)
@@ -390,44 +404,19 @@ pdf.save("site-plan.pdf")
 
 }
 
-let canvas=document.getElementById("canvas")
+function clearAll(){
 
-canvas.addEventListener("mousedown",e=>{
+lines=[]
+points=[]
+rotation=0
 
-let rect=canvas.getBoundingClientRect()
+document.getElementById("area").innerText=""
 
-let x=e.clientX-rect.left
-let y=e.clientY-rect.top
+let ctx=document.getElementById("canvas").getContext("2d")
 
-points.forEach((p,i)=>{
+ctx.clearRect(0,0,1200,800)
 
-let sx=p[0]
-let sy=p[1]
-
-if(Math.hypot(x-sx,y-sy)<10){
-draggingIndex=i
 }
-
-})
-
-})
-
-canvas.addEventListener("mouseup",()=>{
-draggingIndex=null
-})
-
-canvas.addEventListener("mousemove",e=>{
-
-if(draggingIndex===null) return
-
-let rect=canvas.getBoundingClientRect()
-
-points[draggingIndex][0]=e.clientX-rect.left
-points[draggingIndex][1]=e.clientY-rect.top
-
-draw()
-
-})
 
 </script>
 
