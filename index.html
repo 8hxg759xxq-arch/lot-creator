@@ -2,7 +2,7 @@
 <html>
 <head>
 
-<title>Lot Designer</title>
+<title>Lot Site Plan Designer</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -71,12 +71,6 @@ cursor:pointer;
 canvas{
 background:white;
 flex:1;
-cursor:grab;
-}
-
-.area{
-margin-top:15px;
-font-weight:600;
 }
 
 </style>
@@ -123,13 +117,8 @@ font-weight:600;
 
 <button onclick="addLineRow()">Add Line</button>
 <button onclick="generateLot()">Generate Lot</button>
-<button onclick="autoCloseLot()">Auto Close Lot</button>
-
-<h3>Tools</h3>
-
-<button onclick="exportPDF()">Export A3 (1:100)</button>
-
-<div id="area" class="area"></div>
+<button onclick="autoClose()">Auto Close Lot</button>
+<button onclick="exportPDF()">Generate PDF</button>
 
 </div>
 
@@ -145,15 +134,12 @@ let points=[]
 function addLineRow(){
 
 let table=document.getElementById("lineTable")
-
 let row=table.insertRow()
 
 for(let i=0;i<4;i++){
 
 let cell=row.insertCell()
-
 let input=document.createElement("input")
-
 cell.appendChild(input)
 
 }
@@ -182,7 +168,6 @@ rows.forEach((row,i)=>{
 if(i===0)return
 
 let inputs=row.querySelectorAll("input")
-
 let type=row.querySelector("select").value
 
 let length=parseFloat(inputs[0].value)
@@ -231,11 +216,8 @@ turn=(180-l.angle)*Math.PI/180
 turn=l.angle*Math.PI/180
 }
 
-if(mode==="cw"){
-direction-=turn
-}else{
-direction+=turn
-}
+if(mode==="cw") direction-=turn
+else direction+=turn
 
 })
 
@@ -243,7 +225,7 @@ return pts
 
 }
 
-function autoCloseLot(){
+function autoClose(){
 
 generateLot()
 
@@ -263,7 +245,6 @@ alert("Closing boundary = "+length.toFixed(2)+" m")
 function draw(){
 
 let canvas=document.getElementById("canvas")
-
 let ctx=canvas.getContext("2d")
 
 ctx.clearRect(0,0,canvas.width,canvas.height)
@@ -278,10 +259,7 @@ let maxx=Math.max(...xs)
 let miny=Math.min(...ys)
 let maxy=Math.max(...ys)
 
-let scale=Math.min(
-900/(maxx-minx||1),
-600/(maxy-miny||1)
-)
+let scale=Math.min(900/(maxx-minx||1),600/(maxy-miny||1))
 
 let screen=[]
 
@@ -297,22 +275,13 @@ screen.push([x,y])
 ctx.beginPath()
 
 screen.forEach((p,i)=>{
-if(i===0)ctx.moveTo(p[0],p[1])
+
+if(i===0) ctx.moveTo(p[0],p[1])
 else ctx.lineTo(p[0],p[1])
+
 })
 
 ctx.stroke()
-
-drawDimensions(ctx,screen)
-drawAngles(ctx,screen)
-
-let area=polygonArea(points)
-
-document.getElementById("area").innerText="Area: "+area.toFixed(2)+" m²"
-
-}
-
-function drawDimensions(ctx,screen){
 
 ctx.font="11px Arial"
 
@@ -321,53 +290,24 @@ for(let i=0;i<screen.length-1;i++){
 let p1=screen[i]
 let p2=screen[i+1]
 
-let dx=p2[0]-p1[0]
-let dy=p2[1]-p1[1]
-
-let len=Math.sqrt(dx*dx+dy*dy)
-
-let nx=-dy/len
-let ny=dx/len
-
-let offset=20
-
-let mx=(p1[0]+p2[0])/2 + nx*offset
-let my=(p1[1]+p2[1])/2 + ny*offset
+let mx=(p1[0]+p2[0])/2
+let my=(p1[1]+p2[1])/2
 
 ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
 
 }
 
-}
+for(let i=1;i<screen.length;i++){
 
-function drawAngles(ctx,screen){
-
-ctx.font="11px Arial"
-
-for(let i=1;i<screen.length-1;i++){
+if(lines[i-1]){
 
 let p=screen[i]
 
-ctx.fillText(lines[i].angle.toFixed(0)+"°",p[0]+6,p[1]-6)
+ctx.fillText(lines[i-1].angle.toFixed(0)+"°",p[0]+5,p[1]-5)
 
 }
 
 }
-
-function polygonArea(points){
-
-let area=0
-
-for(let i=0;i<points.length;i++){
-
-let j=(i+1)%points.length
-
-area+=points[i][0]*points[j][1]
-area-=points[j][0]*points[i][1]
-
-}
-
-return Math.abs(area/2)
 
 }
 
@@ -423,31 +363,24 @@ pdf.text(lines[i].length.toFixed(2)+"m",mx,my)
 
 }
 
-for(let i=1;i<pts.length-1;i++){
+for(let i=1;i<pts.length;i++){
+
+if(lines[i-1]){
 
 let x=pts[i][0]*scale+offsetX
 let y=(maxy-pts[i][1])*scale+offsetY
 
-pdf.text(lines[i].angle.toFixed(0)+"°",x+2,y-2)
+pdf.text(lines[i-1].angle.toFixed(0)+"°",x+2,y-2)
 
 }
 
-let area=polygonArea(pts)
+}
 
 pdf.setFontSize(14)
 pdf.text("SITE PLAN",20,20)
 
 pdf.setFontSize(10)
 pdf.text("Scale 1:100 @ A3",20,28)
-pdf.text("Lot Area: "+area.toFixed(2)+" m²",20,36)
-
-let logoWidth=100
-let logoHeight=25
-
-let logoX=pageWidth-logoWidth-8
-let logoY=pageHeight-logoHeight-8
-
-pdf.addImage("logos.png","PNG",logoX,logoY,logoWidth,logoHeight)
 
 pdf.save("site-plan.pdf")
 
