@@ -2,7 +2,7 @@
 <html>
 <head>
 
-<title>Lot Designer</title>
+<title>Lot Site Plan Designer</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -74,13 +74,18 @@ flex:1;
 cursor:grab;
 }
 
+.area{
+margin-top:15px;
+font-weight:600;
+}
+
 </style>
 
 </head>
 
 <body>
 
-<header>Lot Designer</header>
+<header>Lot Site Plan Designer</header>
 
 <div id="container">
 
@@ -122,9 +127,11 @@ cursor:grab;
 
 <h3>Tools</h3>
 
-<button onclick="rotateLot()">Rotate</button>
-<button onclick="flipLot()">Flip</button>
+<button onclick="rotateLot()">Rotate Lot</button>
+<button onclick="flipLot()">Flip Lot</button>
 <button onclick="exportPDF()">Export A3</button>
+
+<div id="area" class="area"></div>
 
 </div>
 
@@ -138,6 +145,8 @@ let lines=[]
 let points=[]
 let rotation=0
 let flipX=1
+let panX=0
+let panY=0
 
 function addLineRow(){
 
@@ -174,7 +183,7 @@ let rows=document.querySelectorAll("#lineTable tr")
 
 rows.forEach((row,i)=>{
 
-if(i===0) return
+if(i===0)return
 
 let cells=row.querySelectorAll("input")
 let type=row.querySelector("select").value
@@ -291,12 +300,62 @@ ctx.beginPath()
 
 screen.forEach((p,i)=>{
 
-if(i===0) ctx.moveTo(p[0],p[1])
+if(i===0)ctx.moveTo(p[0],p[1])
 else ctx.lineTo(p[0],p[1])
 
 })
 
 ctx.stroke()
+
+drawDimensions(ctx,screen)
+drawCornerAngles(ctx,screen)
+
+let area=polygonArea(points)
+
+document.getElementById("area").innerText="Area: "+area.toFixed(2)+" m²"
+
+}
+
+function drawDimensions(ctx,screen){
+
+ctx.font="11px Arial"
+
+for(let i=0;i<screen.length-1;i++){
+
+let p1=screen[i]
+let p2=screen[i+1]
+
+let dx=p2[0]-p1[0]
+let dy=p2[1]-p1[1]
+
+let len=Math.sqrt(dx*dx+dy*dy)
+
+let nx=-dy/len
+let ny=dx/len
+
+let offset=20
+
+let mx=(p1[0]+p2[0])/2 + nx*offset
+let my=(p1[1]+p2[1])/2 + ny*offset
+
+ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
+
+}
+
+}
+
+function drawCornerAngles(ctx,screen){
+
+ctx.font="11px Arial"
+
+for(let i=1;i<screen.length-1;i++){
+
+let p=screen[i]
+let angle=lines[i].angle
+
+ctx.fillText(angle.toFixed(0)+"°",p[0]+6,p[1]-6)
+
+}
 
 }
 
@@ -310,6 +369,23 @@ flipX*=-1
 draw()
 }
 
+function polygonArea(points){
+
+let area=0
+
+for(let i=0;i<points.length;i++){
+
+let j=(i+1)%points.length
+
+area+=points[i][0]*points[j][1]
+area-=points[j][0]*points[i][1]
+
+}
+
+return Math.abs(area/2)
+
+}
+
 function exportPDF(){
 
 const {jsPDF}=window.jspdf
@@ -320,7 +396,70 @@ unit:"mm",
 format:"a3"
 })
 
+let pageWidth=pdf.internal.pageSize.getWidth()
+let pageHeight=pdf.internal.pageSize.getHeight()
+
+pdf.rect(8,8,pageWidth-16,pageHeight-16)
+
+let xs=points.map(p=>p[0])
+let ys=points.map(p=>p[1])
+
+let minx=Math.min(...xs)
+let maxx=Math.max(...xs)
+let miny=Math.min(...ys)
+let maxy=Math.max(...ys)
+
+let lotWidth=maxx-minx
+let lotHeight=maxy-miny
+
+let scale=Math.min(260/(lotWidth||1),360/(lotHeight||1))
+
+let offsetX=(pageWidth-lotWidth*scale)/2-minx*scale
+let offsetY=(pageHeight-lotHeight*scale)/2
+
+pdf.setDrawColor(200,0,0)
+
+for(let i=0;i<points.length-1;i++){
+
+let x1=points[i][0]*scale+offsetX
+let y1=(maxy-points[i][1])*scale+offsetY
+
+let x2=points[i+1][0]*scale+offsetX
+let y2=(maxy-points[i+1][1])*scale+offsetY
+
+pdf.line(x1,y1,x2,y2)
+
+let mx=(x1+x2)/2
+let my=(y1+y2)/2
+
+pdf.setTextColor(0,0,0)
+pdf.setFontSize(9)
+
+pdf.text(lines[i].length.toFixed(2)+"m",mx,my)
+
+}
+
+let area=polygonArea(points)
+
 pdf.text("SITE PLAN",20,20)
+pdf.text("Lot Area: "+area.toFixed(2)+" m²",20,30)
+
+let nx=pageWidth-40
+let ny=40
+
+pdf.line(nx,ny,nx,ny-20)
+pdf.line(nx,ny-20,nx-4,ny-14)
+pdf.line(nx,ny-20,nx+4,ny-14)
+
+pdf.text("N",nx-2,ny-24)
+
+let logoWidth=100
+let logoHeight=25
+
+let logoX=pageWidth-logoWidth-8
+let logoY=pageHeight-logoHeight-8
+
+pdf.addImage("logos.png","PNG",logoX,logoY,logoWidth,logoHeight)
 
 pdf.save("site-plan.pdf")
 
