@@ -2,7 +2,7 @@
 <html>
 <head>
 
-<title>Lot Site Plan Designer</title>
+<title>Lot Designer</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -54,6 +54,10 @@ border:1px solid #ddd;
 border-radius:4px;
 }
 
+select{
+padding:4px;
+}
+
 button{
 margin-top:10px;
 padding:8px 12px;
@@ -62,11 +66,6 @@ border-radius:6px;
 background:#2563eb;
 color:white;
 cursor:pointer;
-font-size:13px;
-}
-
-button.secondary{
-background:#64748b;
 }
 
 canvas{
@@ -75,18 +74,13 @@ flex:1;
 cursor:grab;
 }
 
-.area{
-margin-top:15px;
-font-weight:600;
-}
-
 </style>
 
 </head>
 
 <body>
 
-<header>Lot Site Plan Designer</header>
+<header>Lot Designer</header>
 
 <div id="container">
 
@@ -108,7 +102,7 @@ font-weight:600;
 <option value="ccw">Counter Clockwise</option>
 </select>
 
-<h3>Boundary Input (Interior Angles)</h3>
+<h3>Boundary Input</h3>
 
 <table id="lineTable">
 
@@ -117,29 +111,20 @@ font-weight:600;
 <th>°</th>
 <th>'</th>
 <th>"</th>
-</tr>
-
-<tr>
-<td><input></td>
-<td><input></td>
-<td><input></td>
-<td><input></td>
+<th>Type</th>
 </tr>
 
 </table>
 
 <button onclick="addLineRow()">Add Line</button>
 <button onclick="generateLot()">Generate Lot</button>
-<button onclick="closeLot()">Close Lot</button>
+<button onclick="autoCloseLot()">Auto Close Lot</button>
 
 <h3>Tools</h3>
 
-<button onclick="rotateLot()">Rotate Lot</button>
-<button onclick="flipLot()">Flip Lot</button>
+<button onclick="rotateLot()">Rotate</button>
+<button onclick="flipLot()">Flip</button>
 <button onclick="exportPDF()">Export A3</button>
-<button class="secondary" onclick="clearAll()">Clear</button>
-
-<div id="area" class="area"></div>
 
 </div>
 
@@ -153,12 +138,11 @@ let lines=[]
 let points=[]
 let rotation=0
 let flipX=1
-let panX=0
-let panY=0
 
 function addLineRow(){
 
 let table=document.getElementById("lineTable")
+
 let row=table.insertRow()
 
 for(let i=0;i<4;i++){
@@ -168,6 +152,17 @@ let input=document.createElement("input")
 cell.appendChild(input)
 
 }
+
+let typeCell=row.insertCell()
+
+let select=document.createElement("select")
+
+select.innerHTML=`
+<option value="interior">Interior</option>
+<option value="external">External</option>
+`
+
+typeCell.appendChild(select)
 
 }
 
@@ -182,6 +177,7 @@ rows.forEach((row,i)=>{
 if(i===0) return
 
 let cells=row.querySelectorAll("input")
+let type=row.querySelector("select").value
 
 let length=parseFloat(cells[0].value)
 
@@ -192,27 +188,10 @@ let s=parseFloat(cells[3].value)||0
 let angle=d+(m/60)+(s/3600)
 
 if(!isNaN(length)){
-lines.push({length,angle})
+lines.push({length,angle,type})
 }
 
 })
-
-draw()
-
-}
-
-function closeLot(){
-
-let pts=calculatePoints()
-
-let last=pts[pts.length-1]
-
-let dx=0-last[0]
-let dy=0-last[1]
-
-let length=Math.sqrt(dx*dx+dy*dy)
-
-lines.push({length:length,angle:90})
 
 draw()
 
@@ -238,7 +217,13 @@ y+=l.length*Math.sin(direction)
 
 pts.push([x,y])
 
-let turn=(180-l.angle)*Math.PI/180
+let turn
+
+if(l.type==="interior"){
+turn=(180-l.angle)*Math.PI/180
+}else{
+turn=l.angle*Math.PI/180
+}
 
 if(mode==="cw"){
 direction-=turn
@@ -252,21 +237,20 @@ return pts
 
 }
 
-function transformPoints(pts){
+function autoCloseLot(){
 
-let rad=rotation*Math.PI/180
+generateLot()
 
-return pts.map(p=>{
+let pts=calculatePoints()
 
-let x=p[0]*flipX
-let y=p[1]
+let last=pts[pts.length-1]
 
-let rx=x*Math.cos(rad)-y*Math.sin(rad)
-let ry=x*Math.sin(rad)+y*Math.cos(rad)
+let dx=0-last[0]
+let dy=0-last[1]
 
-return [rx+panX,ry+panY]
+let length=Math.sqrt(dx*dx+dy*dy)
 
-})
+alert("Closing boundary length = "+length.toFixed(2)+"m")
 
 }
 
@@ -277,7 +261,7 @@ let ctx=canvas.getContext("2d")
 
 ctx.clearRect(0,0,canvas.width,canvas.height)
 
-points=transformPoints(calculatePoints())
+points=calculatePoints()
 
 let xs=points.map(p=>p[0])
 let ys=points.map(p=>p[1])
@@ -287,76 +271,32 @@ let maxx=Math.max(...xs)
 let miny=Math.min(...ys)
 let maxy=Math.max(...ys)
 
-let w=maxx-minx
-let h=maxy-miny
-
-let scale=Math.min(900/(w||1),600/(h||1))
+let scale=Math.min(
+900/(maxx-minx||1),
+600/(maxy-miny||1)
+)
 
 let screen=[]
 
 points.forEach(p=>{
+
 let x=(p[0]-minx)*scale+150
 let y=700-(p[1]-miny)*scale
+
 screen.push([x,y])
+
 })
 
 ctx.beginPath()
 
 screen.forEach((p,i)=>{
+
 if(i===0) ctx.moveTo(p[0],p[1])
 else ctx.lineTo(p[0],p[1])
+
 })
 
 ctx.stroke()
-
-drawDimensions(ctx,screen)
-drawCornerAngles(ctx,screen)
-
-let area=polygonArea(points)
-document.getElementById("area").innerText="Area: "+area.toFixed(2)+" m²"
-
-}
-
-function drawDimensions(ctx,screen){
-
-ctx.font="11px Arial"
-
-for(let i=0;i<screen.length-1;i++){
-
-let p1=screen[i]
-let p2=screen[i+1]
-
-let dx=p2[0]-p1[0]
-let dy=p2[1]-p1[1]
-
-let len=Math.sqrt(dx*dx+dy*dy)
-
-let nx=-dy/len
-let ny=dx/len
-
-let offset=20
-
-let mx=(p1[0]+p2[0])/2 + nx*offset
-let my=(p1[1]+p2[1])/2 + ny*offset
-
-ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
-
-}
-
-}
-
-function drawCornerAngles(ctx,screen){
-
-ctx.font="11px Arial"
-
-for(let i=1;i<screen.length-1;i++){
-
-let p=screen[i]
-let angle=lines[i].angle
-
-ctx.fillText(angle.toFixed(0)+"°",p[0]+6,p[1]-6)
-
-}
 
 }
 
@@ -370,23 +310,6 @@ flipX*=-1
 draw()
 }
 
-function polygonArea(points){
-
-let area=0
-
-for(let i=0;i<points.length;i++){
-
-let j=(i+1)%points.length
-
-area+=points[i][0]*points[j][1]
-area-=points[j][0]*points[i][1]
-
-}
-
-return Math.abs(area/2)
-
-}
-
 function exportPDF(){
 
 const {jsPDF}=window.jspdf
@@ -397,75 +320,15 @@ unit:"mm",
 format:"a3"
 })
 
-let pageWidth=pdf.internal.pageSize.getWidth()
-let pageHeight=pdf.internal.pageSize.getHeight()
-
-pdf.rect(8,8,pageWidth-16,pageHeight-16)
-
-let scale=10
-
-for(let i=0;i<points.length-1;i++){
-
-let x1=points[i][0]*scale+150
-let y1=400-(points[i][1]*scale)
-
-let x2=points[i+1][0]*scale+150
-let y2=400-(points[i+1][1]*scale)
-
-pdf.line(x1,y1,x2,y2)
-
-}
-
 pdf.text("SITE PLAN",20,20)
 
 pdf.save("site-plan.pdf")
 
 }
 
-let canvas=document.getElementById("canvas")
-
-canvas.addEventListener("mousedown",e=>{
-canvas.dataset.drag="1"
-canvas.dataset.x=e.clientX
-canvas.dataset.y=e.clientY
-})
-
-canvas.addEventListener("mouseup",()=>{
-canvas.dataset.drag="0"
-})
-
-canvas.addEventListener("mousemove",e=>{
-
-if(canvas.dataset.drag!=="1") return
-
-let dx=e.clientX-canvas.dataset.x
-let dy=e.clientY-canvas.dataset.y
-
-panX+=dx*0.02
-panY-=dy*0.02
-
-canvas.dataset.x=e.clientX
-canvas.dataset.y=e.clientY
-
-draw()
-
-})
-
-function clearAll(){
-
-lines=[]
-points=[]
-rotation=0
-flipX=1
-panX=0
-panY=0
-
-document.getElementById("area").innerText=""
-
-let ctx=document.getElementById("canvas").getContext("2d")
-ctx.clearRect(0,0,1200,800)
-
-}
+addLineRow()
+addLineRow()
+addLineRow()
 
 </script>
 
