@@ -101,6 +101,13 @@ font-weight:600;
 <option value="270">South</option>
 </select>
 
+<h3>Boundary Direction</h3>
+
+<select id="directionMode">
+<option value="cw">Clockwise</option>
+<option value="ccw">Counter Clockwise</option>
+</select>
+
 <h3>Boundary Input (Interior Angles)</h3>
 
 <table id="lineTable">
@@ -129,7 +136,6 @@ font-weight:600;
 
 <button onclick="rotateLot()">Rotate Lot</button>
 <button onclick="flipLot()">Flip Lot</button>
-<button onclick="rotateNorth()">Rotate North</button>
 <button onclick="exportPDF()">Export A3</button>
 <button class="secondary" onclick="clearAll()">Clear</button>
 
@@ -147,7 +153,6 @@ let lines=[]
 let points=[]
 let rotation=0
 let flipX=1
-let northRotation=0
 let panX=0
 let panY=0
 
@@ -157,9 +162,11 @@ let table=document.getElementById("lineTable")
 let row=table.insertRow()
 
 for(let i=0;i<4;i++){
+
 let cell=row.insertCell()
 let input=document.createElement("input")
 cell.appendChild(input)
+
 }
 
 }
@@ -219,6 +226,8 @@ let direction=parseFloat(
 document.getElementById("startDirection").value
 )*Math.PI/180
 
+let mode=document.getElementById("directionMode").value
+
 let x=0
 let y=0
 
@@ -230,7 +239,12 @@ y+=l.length*Math.sin(direction)
 pts.push([x,y])
 
 let turn=(180-l.angle)*Math.PI/180
+
+if(mode==="cw"){
+direction-=turn
+}else{
 direction+=turn
+}
 
 })
 
