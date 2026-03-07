@@ -248,7 +248,11 @@ let dy=p2[1]-p1[1]
 
 let angle=Math.atan2(dy,dx)*180/Math.PI
 
-rotation=90-angle
+// rotate to nearest vertical instead of forcing flip
+let rot1 = 90 - angle
+let rot2 = -90 - angle
+
+rotation = Math.abs(rot1) < Math.abs(rot2) ? rot1 : rot2
 
 break
 
@@ -543,3 +547,4 @@ addLineRow()
 
 </body>
 </html>
+
