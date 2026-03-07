@@ -116,6 +116,7 @@ width:100%;
 <th>'</th>
 <th>"</th>
 <th>Type</th>
+<th>Vertical</th>
 </tr>
 </table>
 
@@ -151,8 +152,6 @@ let panY=0
 let rotation=0
 let flip=1
 
-/* add row */
-
 function addLineRow(){
 
 let row=document.getElementById("lineTable").insertRow()
@@ -168,11 +167,10 @@ row.innerHTML=`
 <option value="external">External</option>
 </select>
 </td>
+<td><input type="checkbox"></td>
 `
 
 }
-
-/* read lines */
 
 function readLines(){
 
@@ -186,6 +184,7 @@ if(i===0)return
 
 let inputs=row.querySelectorAll("input")
 let type=row.querySelector("select").value
+let vertical=inputs[4].checked
 
 let length=parseFloat(inputs[0].value)
 
@@ -196,14 +195,14 @@ let s=parseFloat(inputs[3].value)||0
 let angle=d+(m/60)+(s/3600)
 
 if(!isNaN(length)){
-lines.push({length,angle,type})
+
+lines.push({length,angle,type,vertical})
+
 }
 
 })
 
 }
-
-/* geometry */
 
 function calculatePoints(){
 
@@ -237,7 +236,41 @@ return pts
 
 }
 
-/* auto close */
+function autoVerticalRotation(pts){
+
+for(let i=0;i<lines.length;i++){
+
+if(lines[i].vertical){
+
+let p1=pts[i]
+let p2=pts[i+1]
+
+let dx=p2[0]-p1[0]
+let dy=p2[1]-p1[1]
+
+let angle=Math.atan2(dy,dx)*180/Math.PI
+
+rotation=90-angle
+
+break
+
+}
+
+}
+
+}
+
+function generateLot(){
+
+readLines()
+
+let pts=calculatePoints()
+
+autoVerticalRotation(pts)
+
+draw()
+
+}
 
 function autoCloseLot(){
 
@@ -255,8 +288,6 @@ let length=Math.sqrt(dx*dx+dy*dy)
 alert("Closing boundary = "+length.toFixed(2)+" m")
 
 }
-
-/* draw */
 
 function draw(){
 
@@ -332,8 +363,6 @@ ctx.restore()
 
 }
 
-/* tools */
-
 function rotateLot(){
 
 rotation+=90
@@ -381,8 +410,6 @@ ctx.clearRect(0,0,1200,800)
 
 }
 
-/* zoom */
-
 canvas.addEventListener("wheel",e=>{
 
 e.preventDefault()
@@ -392,8 +419,6 @@ zoom*=e.deltaY<0?1.1:0.9
 draw()
 
 })
-
-/* pan */
 
 let dragging=false
 let lastX,lastY
@@ -420,8 +445,6 @@ draw()
 
 canvas.addEventListener("mouseup",()=>dragging=false)
 
-/* panel resize */
-
 const divider=document.getElementById("divider")
 const panel=document.getElementById("panel")
 
@@ -435,8 +458,6 @@ panel.style.width=e.clientX+"px"
 })
 
 document.addEventListener("mouseup",()=>resizing=false)
-
-/* pdf export */
 
 function exportPDF(){
 
@@ -506,14 +527,14 @@ pdf.save("site-plan.pdf")
 }
 
 img.onerror=function(){
+
 pdf.save("site-plan.pdf")
+
 }
 
 img.src="logos.png"
 
 }
-
-/* start */
 
 addLineRow()
 addLineRow()
