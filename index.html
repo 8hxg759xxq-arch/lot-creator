@@ -116,7 +116,6 @@ width:100%;
 <th>'</th>
 <th>"</th>
 <th>Type</th>
-<th>Vertical</th>
 </tr>
 </table>
 
@@ -128,6 +127,7 @@ width:100%;
 
 <button onclick="rotateLot()">Rotate</button>
 <button onclick="flipLot()">Flip</button>
+<button onclick="snapCenter()">Snap To Center</button>
 <button onclick="clearLot()">Clear</button>
 
 <h3>Export</h3>
@@ -148,6 +148,8 @@ let lines=[]
 let zoom=1
 let panX=0
 let panY=0
+let rotation=0
+let flip=1
 
 /* add row */
 
@@ -166,12 +168,11 @@ row.innerHTML=`
 <option value="external">External</option>
 </select>
 </td>
-<td><input type="checkbox"></td>
 `
 
 }
 
-/* read inputs */
+/* read lines */
 
 function readLines(){
 
@@ -195,9 +196,7 @@ let s=parseFloat(inputs[3].value)||0
 let angle=d+(m/60)+(s/3600)
 
 if(!isNaN(length)){
-
 lines.push({length,angle,type})
-
 }
 
 })
@@ -238,7 +237,7 @@ return pts
 
 }
 
-/* auto close solver */
+/* auto close */
 
 function autoCloseLot(){
 
@@ -253,40 +252,11 @@ let dy=-last[1]
 
 let length=Math.sqrt(dx*dx+dy*dy)
 
-let angle=Math.atan2(dy,dx)*180/Math.PI
-
-if(angle<0) angle+=360
-
-let table=document.getElementById("lineTable")
-
-let row=table.insertRow()
-
-row.innerHTML=`
-<td><input value="${length.toFixed(2)}"></td>
-<td><input value="${angle.toFixed(2)}"></td>
-<td><input></td>
-<td><input></td>
-<td>
-<select>
-<option value="external">External</option>
-</select>
-</td>
-<td><input type="checkbox"></td>
-`
-
-generateLot()
+alert("Closing boundary = "+length.toFixed(2)+" m")
 
 }
 
 /* draw */
-
-function generateLot(){
-
-readLines()
-
-draw()
-
-}
 
 function draw(){
 
@@ -296,6 +266,15 @@ let ctx=canvas.getContext("2d")
 ctx.clearRect(0,0,canvas.width,canvas.height)
 
 let pts=calculatePoints()
+
+pts=pts.map(p=>[p[0]*flip,p[1]])
+
+let rad=rotation*Math.PI/180
+
+pts=pts.map(p=>[
+p[0]*Math.cos(rad)-p[1]*Math.sin(rad),
+p[0]*Math.sin(rad)+p[1]*Math.cos(rad)
+])
 
 let xs=pts.map(p=>p[0])
 let ys=pts.map(p=>p[1])
@@ -353,6 +332,55 @@ ctx.restore()
 
 }
 
+/* tools */
+
+function rotateLot(){
+
+rotation+=90
+draw()
+
+}
+
+function flipLot(){
+
+flip*=-1
+draw()
+
+}
+
+function snapCenter(){
+
+zoom=1
+panX=0
+panY=0
+draw()
+
+}
+
+function clearLot(){
+
+lines=[]
+zoom=1
+panX=0
+panY=0
+rotation=0
+flip=1
+
+let table=document.getElementById("lineTable")
+
+while(table.rows.length>1){
+table.deleteRow(1)
+}
+
+addLineRow()
+addLineRow()
+addLineRow()
+
+let ctx=document.getElementById("canvas").getContext("2d")
+ctx.clearRect(0,0,1200,800)
+
+}
+
 /* zoom */
 
 canvas.addEventListener("wheel",e=>{
@@ -371,11 +399,9 @@ let dragging=false
 let lastX,lastY
 
 canvas.addEventListener("mousedown",e=>{
-
 dragging=true
 lastX=e.clientX
 lastY=e.clientY
-
 })
 
 canvas.addEventListener("mousemove",e=>{
@@ -394,7 +420,7 @@ draw()
 
 canvas.addEventListener("mouseup",()=>dragging=false)
 
-/* divider resize */
+/* panel resize */
 
 const divider=document.getElementById("divider")
 const panel=document.getElementById("panel")
@@ -404,11 +430,8 @@ let resizing=false
 divider.addEventListener("mousedown",()=>resizing=true)
 
 document.addEventListener("mousemove",e=>{
-
 if(!resizing)return
-
 panel.style.width=e.clientX+"px"
-
 })
 
 document.addEventListener("mouseup",()=>resizing=false)
@@ -428,6 +451,15 @@ format:"a3"
 })
 
 let pts=calculatePoints()
+
+pts=pts.map(p=>[p[0]*flip,p[1]])
+
+let rad=rotation*Math.PI/180
+
+pts=pts.map(p=>[
+p[0]*Math.cos(rad)-p[1]*Math.sin(rad),
+p[0]*Math.sin(rad)+p[1]*Math.cos(rad)
+])
 
 let pageWidth=pdf.internal.pageSize.getWidth()
 let pageHeight=pdf.internal.pageSize.getHeight()
@@ -474,16 +506,14 @@ pdf.save("site-plan.pdf")
 }
 
 img.onerror=function(){
-
 pdf.save("site-plan.pdf")
-
 }
 
 img.src="logos.png"
 
 }
 
-/* start rows */
+/* start */
 
 addLineRow()
 addLineRow()
