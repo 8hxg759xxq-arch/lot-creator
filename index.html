@@ -195,9 +195,7 @@ let s=parseFloat(inputs[3].value)||0
 let angle=d+(m/60)+(s/3600)
 
 if(!isNaN(length)){
-
 lines.push({length,angle,type,vertical})
-
 }
 
 })
@@ -352,8 +350,15 @@ for(let i=0;i<screen.length-1;i++){
 let p1=screen[i]
 let p2=screen[i+1]
 
-let mx=(p1[0]+p2[0])/2
-let my=(p1[1]+p2[1])/2
+let dx=p2[0]-p1[0]
+let dy=p2[1]-p1[1]
+let len=Math.sqrt(dx*dx+dy*dy)
+
+let nx=-dy/len
+let ny=dx/len
+
+let mx=(p1[0]+p2[0])/2 + nx*15
+let my=(p1[1]+p2[1])/2 + ny*15
 
 ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
 
@@ -363,19 +368,8 @@ ctx.restore()
 
 }
 
-function rotateLot(){
-
-rotation+=90
-draw()
-
-}
-
-function flipLot(){
-
-flip*=-1
-draw()
-
-}
+function rotateLot(){ rotation+=90; draw() }
+function flipLot(){ flip*=-1; draw() }
 
 function snapCenter(){
 
@@ -411,13 +405,9 @@ ctx.clearRect(0,0,1200,800)
 }
 
 canvas.addEventListener("wheel",e=>{
-
 e.preventDefault()
-
 zoom*=e.deltaY<0?1.1:0.9
-
 draw()
-
 })
 
 let dragging=false
@@ -512,9 +502,20 @@ let y2=(maxy-pts[i+1][1])*scale+offsetY
 
 pdf.line(x1,y1,x2,y2)
 
-}
+let dx=x2-x1
+let dy=y2-y1
+let len=Math.sqrt(dx*dx+dy*dy)
 
-pdf.text("Scale 1:100 @ A3",20,20)
+let nx=-dy/len
+let ny=dx/len
+
+let mx=(x1+x2)/2 + nx*6
+let my=(y1+y2)/2 + ny*6
+
+pdf.setFontSize(9)
+pdf.text(lines[i].length.toFixed(2)+"m",mx,my)
+
+}
 
 let img=new Image()
 
@@ -527,9 +528,7 @@ pdf.save("site-plan.pdf")
 }
 
 img.onerror=function(){
-
 pdf.save("site-plan.pdf")
-
 }
 
 img.src="logos.png"
