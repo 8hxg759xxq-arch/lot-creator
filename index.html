@@ -122,6 +122,7 @@ width:100%;
 
 <button onclick="addLineRow()">Add Line</button>
 <button onclick="generateLot()">Generate Lot</button>
+<button onclick="autoCloseLot()">Auto Close Lot</button>
 
 <h3>Tools</h3>
 
@@ -237,26 +238,40 @@ return pts
 
 }
 
-function applyVerticalRotation(pts){
+function autoCloseLot(){
 
-let index=lines.findIndex(l=>l.vertical)
+generateLot()
 
-if(index===-1)return pts
+let pts=calculatePoints()
 
-let p1=pts[index]
-let p2=pts[index+1]
+let last=pts[pts.length-1]
 
-let dx=p2[0]-p1[0]
-let dy=p2[1]-p1[1]
+let dx=0-last[0]
+let dy=0-last[1]
 
-let angle=Math.atan2(dy,dx)
+let length=Math.sqrt(dx*dx+dy*dy)
 
-let rotate=Math.PI/2-angle
+alert("Closing boundary length = "+length.toFixed(2)+"m")
 
-return pts.map(p=>[
-p[0]*Math.cos(rotate)-p[1]*Math.sin(rotate),
-p[0]*Math.sin(rotate)+p[1]*Math.cos(rotate)
-])
+let table=document.getElementById("lineTable")
+
+let row=table.insertRow()
+
+row.innerHTML=`
+<td><input value="${length.toFixed(2)}"></td>
+<td><input></td>
+<td><input></td>
+<td><input></td>
+<td>
+<select>
+<option value="interior">Interior</option>
+<option value="external">External</option>
+</select>
+</td>
+<td><input type="checkbox"></td>
+`
+
+generateLot()
 
 }
 
@@ -267,16 +282,7 @@ let ctx=canvas.getContext("2d")
 
 ctx.clearRect(0,0,canvas.width,canvas.height)
 
-let pts=applyVerticalRotation(calculatePoints())
-
-pts=pts.map(p=>[p[0]*flip,p[1]])
-
-let rad=rotation*Math.PI/180
-
-pts=pts.map(p=>[
-p[0]*Math.cos(rad)-p[1]*Math.sin(rad),
-p[0]*Math.sin(rad)+p[1]*Math.cos(rad)
-])
+let pts=calculatePoints()
 
 let xs=pts.map(p=>p[0])
 let ys=pts.map(p=>p[1])
@@ -300,7 +306,7 @@ let screen=[]
 pts.forEach(p=>{
 
 let x=(p[0]-minx)*scale+150
-let y=(maxy-p[1])*scale+100
+let y=(p[1]-miny)*scale+100
 
 screen.push([x,y])
 
@@ -352,8 +358,6 @@ function flipLot(){flip*=-1;draw()}
 function clearLot(){
 
 lines=[]
-rotation=0
-flip=1
 
 let table=document.getElementById("lineTable")
 
@@ -379,7 +383,7 @@ unit:"mm",
 format:"a3"
 })
 
-let pts=applyVerticalRotation(calculatePoints())
+let pts=calculatePoints()
 
 let pageWidth=pdf.internal.pageSize.getWidth()
 let pageHeight=pdf.internal.pageSize.getHeight()
@@ -404,10 +408,10 @@ pdf.setDrawColor(200,0,0)
 for(let i=0;i<pts.length-1;i++){
 
 let x1=pts[i][0]*scale+offsetX
-let y1=(maxy-pts[i][1])*scale+offsetY
+let y1=(pts[i][1]-miny)*scale+offsetY
 
 let x2=pts[i+1][0]*scale+offsetX
-let y2=(maxy-pts[i+1][1])*scale+offsetY
+let y2=(pts[i+1][1]-miny)*scale+offsetY
 
 pdf.line(x1,y1,x2,y2)
 
@@ -427,52 +431,6 @@ img.onerror=function(){pdf.save("site-plan.pdf")}
 img.src="logos.png"
 
 }
-
-/* zoom */
-
-canvas.addEventListener("wheel",e=>{
-e.preventDefault()
-zoom*=e.deltaY<0?1.1:0.9
-draw()
-})
-
-/* pan */
-
-let dragging=false
-let lastX,lastY
-
-canvas.addEventListener("mousedown",e=>{
-dragging=true
-lastX=e.clientX
-lastY=e.clientY
-})
-
-canvas.addEventListener("mousemove",e=>{
-if(!dragging)return
-panX+=e.clientX-lastX
-panY+=e.clientY-lastY
-lastX=e.clientX
-lastY=e.clientY
-draw()
-})
-
-canvas.addEventListener("mouseup",()=>dragging=false)
-
-/* divider */
-
-const divider=document.getElementById("divider")
-const panel=document.getElementById("panel")
-
-let resizing=false
-
-divider.addEventListener("mousedown",()=>resizing=true)
-
-document.addEventListener("mousemove",e=>{
-if(!resizing)return
-panel.style.width=e.clientX+"px"
-})
-
-document.addEventListener("mouseup",()=>resizing=false)
 
 addLineRow()
 addLineRow()
