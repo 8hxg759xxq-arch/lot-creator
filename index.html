@@ -28,11 +28,29 @@ height:calc(100vh - 52px);
 }
 
 .controls{
-width:360px;
+width:380px;
+min-width:260px;
+max-width:700px;
 background:white;
 padding:20px;
 box-shadow:2px 0 8px rgba(0,0,0,0.08);
 overflow:auto;
+}
+
+#divider{
+width:6px;
+cursor:col-resize;
+background:#e2e8f0;
+}
+
+#divider:hover{
+background:#94a3b8;
+}
+
+canvas{
+background:white;
+flex:1;
+cursor:grab;
 }
 
 table{
@@ -48,7 +66,7 @@ text-align:center;
 }
 
 input{
-width:60px;
+width:55px;
 padding:4px;
 border:1px solid #ddd;
 border-radius:4px;
@@ -65,11 +83,6 @@ cursor:pointer;
 width:100%;
 }
 
-canvas{
-background:white;
-flex:1;
-}
-
 </style>
 
 </head>
@@ -80,7 +93,7 @@ flex:1;
 
 <div id="container">
 
-<div class="controls">
+<div class="controls" id="panel">
 
 <h3>Start Direction</h3>
 
@@ -101,7 +114,6 @@ flex:1;
 <h3>Boundary Input</h3>
 
 <table id="lineTable">
-
 <tr>
 <th>Length</th>
 <th>°</th>
@@ -110,7 +122,6 @@ flex:1;
 <th>Type</th>
 <th>Vertical</th>
 </tr>
-
 </table>
 
 <button onclick="addLineRow()">Add Line</button>
@@ -128,6 +139,8 @@ flex:1;
 
 </div>
 
+<div id="divider"></div>
+
 <canvas id="canvas" width="1200" height="800"></canvas>
 
 </div>
@@ -135,40 +148,34 @@ flex:1;
 <script>
 
 let lines=[]
-let points=[]
 let rotation=0
 let flip=1
+
+let zoom=1
+let panX=0
+let panY=0
+let dragging=false
+let lastX=0
+let lastY=0
 
 function addLineRow(){
 
 let table=document.getElementById("lineTable")
 let row=table.insertRow()
 
-for(let i=0;i<4;i++){
-
-let cell=row.insertCell()
-let input=document.createElement("input")
-cell.appendChild(input)
-
-}
-
-let typeCell=row.insertCell()
-
-let select=document.createElement("select")
-
-select.innerHTML=`
+row.innerHTML=`
+<td><input></td>
+<td><input></td>
+<td><input></td>
+<td><input></td>
+<td>
+<select>
 <option value="interior">Interior</option>
 <option value="external">External</option>
+</select>
+</td>
+<td><input type="checkbox"></td>
 `
-
-typeCell.appendChild(select)
-
-let vertCell=row.insertCell()
-
-let check=document.createElement("input")
-check.type="checkbox"
-
-vertCell.appendChild(check)
 
 }
 
@@ -183,8 +190,7 @@ rows.forEach((row,i)=>{
 if(i===0)return
 
 let inputs=row.querySelectorAll("input")
-let type=row.querySelector("select").value
-let vertical=row.querySelector('input[type="checkbox"]').checked
+let select=row.querySelector("select")
 
 let length=parseFloat(inputs[0].value)
 
@@ -194,8 +200,14 @@ let s=parseFloat(inputs[3].value)||0
 
 let angle=d+(m/60)+(s/3600)
 
+let vertical=inputs[4].checked
+
+let type=select.value
+
 if(!isNaN(length)){
+
 lines.push({length,angle,type,vertical})
+
 }
 
 })
@@ -245,7 +257,7 @@ function applyVerticalRotation(pts){
 
 let index=lines.findIndex(l=>l.vertical)
 
-if(index===-1) return pts
+if(index===-1)return pts
 
 let p1=pts[index]
 let p2=pts[index+1]
@@ -255,9 +267,7 @@ let dy=p2[1]-p1[1]
 
 let angle=Math.atan2(dy,dx)
 
-let target=Math.PI/2
-
-let rotate=target-angle
+let rotate=Math.PI/2-angle
 
 return pts.map(p=>{
 
@@ -280,30 +290,33 @@ let ctx=canvas.getContext("2d")
 
 ctx.clearRect(0,0,canvas.width,canvas.height)
 
-points=applyVerticalRotation(calculatePoints())
+let pts=applyVerticalRotation(calculatePoints())
 
-points=points.map(p=>[p[0]*flip,p[1]])
+pts=pts.map(p=>[p[0]*flip,p[1]])
 
 let rad=rotation*Math.PI/180
 
-points=points.map(p=>[
+pts=pts.map(p=>[
 p[0]*Math.cos(rad)-p[1]*Math.sin(rad),
 p[0]*Math.sin(rad)+p[1]*Math.cos(rad)
 ])
 
-let xs=points.map(p=>p[0])
-let ys=points.map(p=>p[1])
+let xs=pts.map(p=>p[0])
+let ys=pts.map(p=>p[1])
 
 let minx=Math.min(...xs)
 let maxx=Math.max(...xs)
 let miny=Math.min(...ys)
 let maxy=Math.max(...ys)
 
-let scale=Math.min(900/(maxx-minx||1),600/(maxy-miny||1))
+let scale=Math.min(900/(maxx-minx||1),600/(maxy-miny||1))*zoom
+
+ctx.save()
+ctx.translate(panX,panY)
 
 let screen=[]
 
-points.forEach(p=>{
+pts.forEach(p=>{
 
 let x=(p[0]-minx)*scale+150
 let y=700-(p[1]-miny)*scale
@@ -315,37 +328,13 @@ screen.push([x,y])
 ctx.beginPath()
 
 screen.forEach((p,i)=>{
-if(i===0) ctx.moveTo(p[0],p[1])
+if(i===0)ctx.moveTo(p[0],p[1])
 else ctx.lineTo(p[0],p[1])
 })
 
 ctx.stroke()
 
-ctx.font="11px Arial"
-
-for(let i=0;i<screen.length-1;i++){
-
-let p1=screen[i]
-let p2=screen[i+1]
-
-let mx=(p1[0]+p2[0])/2
-let my=(p1[1]+p2[1])/2
-
-ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
-
-}
-
-for(let i=1;i<screen.length;i++){
-
-if(lines[i-1]){
-
-let p=screen[i]
-
-ctx.fillText(lines[i-1].angle.toFixed(0)+"°",p[0]+5,p[1]-5)
-
-}
-
-}
+ctx.restore()
 
 }
 
@@ -362,7 +351,6 @@ draw()
 function clearLot(){
 
 lines=[]
-points=[]
 rotation=0
 flip=1
 
@@ -377,8 +365,7 @@ addLineRow()
 addLineRow()
 
 let canvas=document.getElementById("canvas")
-let ctx=canvas.getContext("2d")
-ctx.clearRect(0,0,canvas.width,canvas.height)
+canvas.getContext("2d").clearRect(0,0,1200,800)
 
 }
 
@@ -394,12 +381,12 @@ unit:"mm",
 format:"a3"
 })
 
+let pts=applyVerticalRotation(calculatePoints())
+
 let pageWidth=pdf.internal.pageSize.getWidth()
 let pageHeight=pdf.internal.pageSize.getHeight()
 
 pdf.rect(8,8,pageWidth-16,pageHeight-16)
-
-let pts=applyVerticalRotation(calculatePoints())
 
 let xs=pts.map(p=>p[0])
 let ys=pts.map(p=>p[1])
@@ -426,25 +413,15 @@ let y2=(maxy-pts[i+1][1])*scale+offsetY
 
 pdf.line(x1,y1,x2,y2)
 
-let mx=(x1+x2)/2
-let my=(y1+y2)/2
-
-pdf.setFontSize(9)
-pdf.text(lines[i].length.toFixed(2)+"m",mx,my)
-
 }
+
+pdf.text("Scale 1:100 @ A3",20,20)
 
 let img=new Image()
 
 img.onload=function(){
 
-let logoWidth=100
-let logoHeight=25
-
-let logoX=pageWidth-logoWidth-8
-let logoY=pageHeight-logoHeight-8
-
-pdf.addImage(img,"PNG",logoX,logoY,logoWidth,logoHeight)
+pdf.addImage(img,"PNG",pageWidth-108,pageHeight-33,100,25)
 
 pdf.save("site-plan.pdf")
 
@@ -457,6 +434,59 @@ pdf.save("site-plan.pdf")
 img.src="logos.png"
 
 }
+
+/* panel resize */
+
+const divider=document.getElementById("divider")
+const panel=document.getElementById("panel")
+
+let resizing=false
+
+divider.addEventListener("mousedown",()=>resizing=true)
+
+document.addEventListener("mousemove",e=>{
+if(!resizing)return
+panel.style.width=e.clientX+"px"
+})
+
+document.addEventListener("mouseup",()=>resizing=false)
+
+/* zoom */
+
+canvas.addEventListener("wheel",e=>{
+
+e.preventDefault()
+
+if(e.deltaY<0) zoom*=1.1
+else zoom/=1.1
+
+draw()
+
+})
+
+/* pan */
+
+canvas.addEventListener("mousedown",e=>{
+dragging=true
+lastX=e.clientX
+lastY=e.clientY
+})
+
+canvas.addEventListener("mousemove",e=>{
+
+if(!dragging)return
+
+panX+=e.clientX-lastX
+panY+=e.clientY-lastY
+
+lastX=e.clientX
+lastY=e.clientY
+
+draw()
+
+})
+
+canvas.addEventListener("mouseup",()=>dragging=false)
 
 addLineRow()
 addLineRow()
