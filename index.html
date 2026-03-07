@@ -27,7 +27,7 @@ display:flex;
 height:calc(100vh - 52px);
 }
 
-.controls{
+#panel{
 width:380px;
 min-width:260px;
 max-width:700px;
@@ -43,13 +43,9 @@ cursor:col-resize;
 background:#e2e8f0;
 }
 
-#divider:hover{
-background:#94a3b8;
-}
-
 canvas{
-background:white;
 flex:1;
+background:white;
 cursor:grab;
 }
 
@@ -93,7 +89,7 @@ width:100%;
 
 <div id="container">
 
-<div class="controls" id="panel">
+<div id="panel">
 
 <h3>Start Direction</h3>
 
@@ -150,18 +146,13 @@ width:100%;
 let lines=[]
 let rotation=0
 let flip=1
-
 let zoom=1
 let panX=0
 let panY=0
-let dragging=false
-let lastX=0
-let lastY=0
 
 function addLineRow(){
 
-let table=document.getElementById("lineTable")
-let row=table.insertRow()
+let row=document.getElementById("lineTable").insertRow()
 
 row.innerHTML=`
 <td><input></td>
@@ -190,7 +181,7 @@ rows.forEach((row,i)=>{
 if(i===0)return
 
 let inputs=row.querySelectorAll("input")
-let select=row.querySelector("select")
+let type=row.querySelector("select").value
 
 let length=parseFloat(inputs[0].value)
 
@@ -201,8 +192,6 @@ let s=parseFloat(inputs[3].value)||0
 let angle=d+(m/60)+(s/3600)
 
 let vertical=inputs[4].checked
-
-let type=select.value
 
 if(!isNaN(length)){
 
@@ -236,16 +225,11 @@ y+=l.length*Math.sin(direction)
 
 pts.push([x,y])
 
-let turn
+let turn=l.type==="interior"
+?(180-l.angle)*Math.PI/180
+:l.angle*Math.PI/180
 
-if(l.type==="interior"){
-turn=(180-l.angle)*Math.PI/180
-}else{
-turn=l.angle*Math.PI/180
-}
-
-if(mode==="cw") direction-=turn
-else direction+=turn
+direction+=mode==="cw"?-turn:turn
 
 })
 
@@ -269,17 +253,10 @@ let angle=Math.atan2(dy,dx)
 
 let rotate=Math.PI/2-angle
 
-return pts.map(p=>{
-
-let x=p[0]
-let y=p[1]
-
-return[
-x*Math.cos(rotate)-y*Math.sin(rotate),
-x*Math.sin(rotate)+y*Math.cos(rotate)
-]
-
-})
+return pts.map(p=>[
+p[0]*Math.cos(rotate)-p[1]*Math.sin(rotate),
+p[0]*Math.sin(rotate)+p[1]*Math.cos(rotate)
+])
 
 }
 
@@ -309,9 +286,13 @@ let maxx=Math.max(...xs)
 let miny=Math.min(...ys)
 let maxy=Math.max(...ys)
 
-let scale=Math.min(900/(maxx-minx||1),600/(maxy-miny||1))*zoom
+let scale=Math.min(
+900/(maxx-minx||1),
+600/(maxy-miny||1)
+)*zoom
 
 ctx.save()
+
 ctx.translate(panX,panY)
 
 let screen=[]
@@ -319,7 +300,7 @@ let screen=[]
 pts.forEach(p=>{
 
 let x=(p[0]-minx)*scale+150
-let y=700-(p[1]-miny)*scale
+let y=(maxy-p[1])*scale+100
 
 screen.push([x,y])
 
@@ -332,21 +313,41 @@ if(i===0)ctx.moveTo(p[0],p[1])
 else ctx.lineTo(p[0],p[1])
 })
 
+ctx.lineWidth=2
 ctx.stroke()
+
+ctx.font="12px Arial"
+
+for(let i=0;i<screen.length-1;i++){
+
+let p1=screen[i]
+let p2=screen[i+1]
+
+let mx=(p1[0]+p2[0])/2
+let my=(p1[1]+p2[1])/2
+
+ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
+
+}
+
+for(let i=1;i<screen.length;i++){
+
+if(lines[i-1]){
+
+let p=screen[i]
+
+ctx.fillText(lines[i-1].angle.toFixed(0)+"°",p[0]+6,p[1]-6)
+
+}
+
+}
 
 ctx.restore()
 
 }
 
-function rotateLot(){
-rotation+=90
-draw()
-}
-
-function flipLot(){
-flip*=-1
-draw()
-}
+function rotateLot(){rotation+=90;draw()}
+function flipLot(){flip*=-1;draw()}
 
 function clearLot(){
 
@@ -356,16 +357,13 @@ flip=1
 
 let table=document.getElementById("lineTable")
 
-while(table.rows.length>1){
-table.deleteRow(1)
-}
+while(table.rows.length>1)table.deleteRow(1)
 
 addLineRow()
 addLineRow()
 addLineRow()
 
-let canvas=document.getElementById("canvas")
-canvas.getContext("2d").clearRect(0,0,1200,800)
+draw()
 
 }
 
@@ -420,22 +418,47 @@ pdf.text("Scale 1:100 @ A3",20,20)
 let img=new Image()
 
 img.onload=function(){
-
 pdf.addImage(img,"PNG",pageWidth-108,pageHeight-33,100,25)
-
-pdf.save("site-plan.pdf")
-
-}
-
-img.onerror=function(){
 pdf.save("site-plan.pdf")
 }
+
+img.onerror=function(){pdf.save("site-plan.pdf")}
 
 img.src="logos.png"
 
 }
 
-/* panel resize */
+/* zoom */
+
+canvas.addEventListener("wheel",e=>{
+e.preventDefault()
+zoom*=e.deltaY<0?1.1:0.9
+draw()
+})
+
+/* pan */
+
+let dragging=false
+let lastX,lastY
+
+canvas.addEventListener("mousedown",e=>{
+dragging=true
+lastX=e.clientX
+lastY=e.clientY
+})
+
+canvas.addEventListener("mousemove",e=>{
+if(!dragging)return
+panX+=e.clientX-lastX
+panY+=e.clientY-lastY
+lastX=e.clientX
+lastY=e.clientY
+draw()
+})
+
+canvas.addEventListener("mouseup",()=>dragging=false)
+
+/* divider */
 
 const divider=document.getElementById("divider")
 const panel=document.getElementById("panel")
@@ -450,43 +473,6 @@ panel.style.width=e.clientX+"px"
 })
 
 document.addEventListener("mouseup",()=>resizing=false)
-
-/* zoom */
-
-canvas.addEventListener("wheel",e=>{
-
-e.preventDefault()
-
-if(e.deltaY<0) zoom*=1.1
-else zoom/=1.1
-
-draw()
-
-})
-
-/* pan */
-
-canvas.addEventListener("mousedown",e=>{
-dragging=true
-lastX=e.clientX
-lastY=e.clientY
-})
-
-canvas.addEventListener("mousemove",e=>{
-
-if(!dragging)return
-
-panX+=e.clientX-lastX
-panY+=e.clientY-lastY
-
-lastX=e.clientX
-lastY=e.clientY
-
-draw()
-
-})
-
-canvas.addEventListener("mouseup",()=>dragging=false)
 
 addLineRow()
 addLineRow()
