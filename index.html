@@ -54,12 +54,8 @@ border:1px solid #ddd;
 border-radius:4px;
 }
 
-select{
-padding:4px;
-}
-
 button{
-margin-top:8px;
+margin-top:6px;
 padding:8px 12px;
 border:none;
 border-radius:6px;
@@ -112,6 +108,7 @@ flex:1;
 <th>'</th>
 <th>"</th>
 <th>Type</th>
+<th>Vertical</th>
 </tr>
 
 </table>
@@ -121,8 +118,8 @@ flex:1;
 
 <h3>Tools</h3>
 
-<button onclick="rotateLot()">Rotate Lot</button>
-<button onclick="flipLot()">Flip Lot</button>
+<button onclick="rotateLot()">Rotate</button>
+<button onclick="flipLot()">Flip</button>
 <button onclick="clearLot()">Clear</button>
 
 <h3>Export</h3>
@@ -166,6 +163,13 @@ select.innerHTML=`
 
 typeCell.appendChild(select)
 
+let vertCell=row.insertCell()
+
+let check=document.createElement("input")
+check.type="checkbox"
+
+vertCell.appendChild(check)
+
 }
 
 function generateLot(){
@@ -180,6 +184,7 @@ if(i===0)return
 
 let inputs=row.querySelectorAll("input")
 let type=row.querySelector("select").value
+let vertical=row.querySelector('input[type="checkbox"]').checked
 
 let length=parseFloat(inputs[0].value)
 
@@ -190,9 +195,7 @@ let s=parseFloat(inputs[3].value)||0
 let angle=d+(m/60)+(s/3600)
 
 if(!isNaN(length)){
-
-lines.push({length,angle,type})
-
+lines.push({length,angle,type,vertical})
 }
 
 })
@@ -224,13 +227,9 @@ pts.push([x,y])
 let turn
 
 if(l.type==="interior"){
-
 turn=(180-l.angle)*Math.PI/180
-
 }else{
-
 turn=l.angle*Math.PI/180
-
 }
 
 if(mode==="cw") direction-=turn
@@ -242,6 +241,38 @@ return pts
 
 }
 
+function applyVerticalRotation(pts){
+
+let index=lines.findIndex(l=>l.vertical)
+
+if(index===-1) return pts
+
+let p1=pts[index]
+let p2=pts[index+1]
+
+let dx=p2[0]-p1[0]
+let dy=p2[1]-p1[1]
+
+let angle=Math.atan2(dy,dx)
+
+let target=Math.PI/2
+
+let rotate=target-angle
+
+return pts.map(p=>{
+
+let x=p[0]
+let y=p[1]
+
+return[
+x*Math.cos(rotate)-y*Math.sin(rotate),
+x*Math.sin(rotate)+y*Math.cos(rotate)
+]
+
+})
+
+}
+
 function draw(){
 
 let canvas=document.getElementById("canvas")
@@ -249,7 +280,7 @@ let ctx=canvas.getContext("2d")
 
 ctx.clearRect(0,0,canvas.width,canvas.height)
 
-points=calculatePoints()
+points=applyVerticalRotation(calculatePoints())
 
 points=points.map(p=>[p[0]*flip,p[1]])
 
@@ -319,17 +350,13 @@ ctx.fillText(lines[i-1].angle.toFixed(0)+"°",p[0]+5,p[1]-5)
 }
 
 function rotateLot(){
-
 rotation+=90
 draw()
-
 }
 
 function flipLot(){
-
 flip*=-1
 draw()
-
 }
 
 function clearLot(){
@@ -342,9 +369,7 @@ flip=1
 let table=document.getElementById("lineTable")
 
 while(table.rows.length>1){
-
 table.deleteRow(1)
-
 }
 
 addLineRow()
@@ -374,7 +399,7 @@ let pageHeight=pdf.internal.pageSize.getHeight()
 
 pdf.rect(8,8,pageWidth-16,pageHeight-16)
 
-let pts=calculatePoints()
+let pts=applyVerticalRotation(calculatePoints())
 
 let xs=pts.map(p=>p[0])
 let ys=pts.map(p=>p[1])
@@ -409,12 +434,6 @@ pdf.text(lines[i].length.toFixed(2)+"m",mx,my)
 
 }
 
-pdf.setFontSize(14)
-pdf.text("SITE PLAN",20,20)
-
-pdf.setFontSize(10)
-pdf.text("Scale 1:100 @ A3",20,28)
-
 let img=new Image()
 
 img.onload=function(){
@@ -432,9 +451,7 @@ pdf.save("site-plan.pdf")
 }
 
 img.onerror=function(){
-
 pdf.save("site-plan.pdf")
-
 }
 
 img.src="logos.png"
