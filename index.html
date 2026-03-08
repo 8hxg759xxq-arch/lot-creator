@@ -80,7 +80,6 @@ width:100%;
 }
 
 </style>
-
 </head>
 
 <body>
@@ -234,15 +233,17 @@ return pts
 
 }
 
-function polygonArea(pts){
+function centroid(pts){
 
-let area=0
+let cx=0
+let cy=0
 
-for(let i=0;i<pts.length-1;i++){
-area += pts[i][0]*pts[i+1][1] - pts[i+1][0]*pts[i][1]
-}
+pts.forEach(p=>{
+cx+=p[0]
+cy+=p[1]
+})
 
-return area/2
+return [cx/pts.length,cy/pts.length]
 
 }
 
@@ -260,10 +261,10 @@ let dy=p2[1]-p1[1]
 
 let angle=Math.atan2(dy,dx)*180/Math.PI
 
-let rot1 = 90 - angle
-let rot2 = -90 - angle
+let rot1=90-angle
+let rot2=-90-angle
 
-rotation = Math.abs(rot1) < Math.abs(rot2) ? rot1 : rot2
+rotation=Math.abs(rot1)<Math.abs(rot2)?rot1:rot2
 
 break
 
@@ -285,23 +286,6 @@ draw()
 
 }
 
-function autoCloseLot(){
-
-readLines()
-
-let pts=calculatePoints()
-
-let last=pts[pts.length-1]
-
-let dx=-last[0]
-let dy=-last[1]
-
-let length=Math.sqrt(dx*dx+dy*dy)
-
-alert("Closing boundary = "+length.toFixed(2)+" m")
-
-}
-
 function draw(){
 
 let canvas=document.getElementById("canvas")
@@ -320,7 +304,7 @@ p[0]*Math.cos(rad)-p[1]*Math.sin(rad),
 p[0]*Math.sin(rad)+p[1]*Math.cos(rad)
 ])
 
-let area=polygonArea(pts)
+let center=centroid(pts)
 
 let xs=pts.map(p=>p[0])
 let ys=pts.map(p=>p[1])
@@ -336,7 +320,6 @@ let scale=Math.min(
 )*zoom
 
 ctx.save()
-
 ctx.translate(panX,panY)
 
 let screen=[]
@@ -374,13 +357,19 @@ let len=Math.sqrt(dx*dx+dy*dy)
 let nx=-dy/len
 let ny=dx/len
 
-let outside = area < 0 ? 1 : -1
+let midx=(pts[i][0]+pts[i+1][0])/2
+let midy=(pts[i][1]+pts[i+1][1])/2
 
-nx*=outside
-ny*=outside
+let vx=midx-center[0]
+let vy=midy-center[1]
 
-let mx=(p1[0]+p2[0])/2 + nx*20
-let my=(p1[1]+p2[1])/2 + ny*20
+if(nx*vx + ny*vy <0){
+nx*=-1
+ny*=-1
+}
+
+let mx=(p1[0]+p2[0])/2 + nx*25
+let my=(p1[1]+p2[1])/2 + ny*25
 
 ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
 
@@ -390,17 +379,10 @@ ctx.restore()
 
 }
 
-function rotateLot(){ rotation+=90; draw() }
-function flipLot(){ flip*=-1; draw() }
+function rotateLot(){rotation+=90;draw()}
+function flipLot(){flip*=-1;draw()}
 
-function snapCenter(){
-
-zoom=1
-panX=0
-panY=0
-draw()
-
-}
+function snapCenter(){zoom=1;panX=0;panY=0;draw()}
 
 function clearLot(){
 
@@ -413,16 +395,13 @@ flip=1
 
 let table=document.getElementById("lineTable")
 
-while(table.rows.length>1){
-table.deleteRow(1)
-}
+while(table.rows.length>1) table.deleteRow(1)
 
 addLineRow()
 addLineRow()
 addLineRow()
 
-let ctx=document.getElementById("canvas").getContext("2d")
-ctx.clearRect(0,0,1200,800)
+draw()
 
 }
 
@@ -432,8 +411,7 @@ zoom*=e.deltaY<0?1.1:0.9
 draw()
 })
 
-let dragging=false
-let lastX,lastY
+let dragging=false,lastX,lastY
 
 canvas.addEventListener("mousedown",e=>{
 dragging=true
@@ -442,34 +420,15 @@ lastY=e.clientY
 })
 
 canvas.addEventListener("mousemove",e=>{
-
 if(!dragging)return
-
 panX+=e.clientX-lastX
 panY+=e.clientY-lastY
-
 lastX=e.clientX
 lastY=e.clientY
-
 draw()
-
 })
 
 canvas.addEventListener("mouseup",()=>dragging=false)
-
-const divider=document.getElementById("divider")
-const panel=document.getElementById("panel")
-
-let resizing=false
-
-divider.addEventListener("mousedown",()=>resizing=true)
-
-document.addEventListener("mousemove",e=>{
-if(!resizing)return
-panel.style.width=e.clientX+"px"
-})
-
-document.addEventListener("mouseup",()=>resizing=false)
 
 function exportPDF(){
 
@@ -485,44 +444,19 @@ format:"a3"
 
 let pts=calculatePoints()
 
-pts=pts.map(p=>[p[0]*flip,p[1]])
-
-let rad=rotation*Math.PI/180
-
-pts=pts.map(p=>[
-p[0]*Math.cos(rad)-p[1]*Math.sin(rad),
-p[0]*Math.sin(rad)+p[1]*Math.cos(rad)
-])
-
-let area=polygonArea(pts)
-
-let pageWidth=pdf.internal.pageSize.getWidth()
-let pageHeight=pdf.internal.pageSize.getHeight()
-
-pdf.rect(8,8,pageWidth-16,pageHeight-16)
-
-let xs=pts.map(p=>p[0])
-let ys=pts.map(p=>p[1])
-
-let minx=Math.min(...xs)
-let maxx=Math.max(...xs)
-let miny=Math.min(...ys)
-let maxy=Math.max(...ys)
+let center=centroid(pts)
 
 let scale=10
-
-let offsetX=(pageWidth-(maxx-minx)*scale)/2-minx*scale
-let offsetY=(pageHeight-(maxy-miny)*scale)/2
-
-pdf.setDrawColor(200,0,0)
+let offsetX=100
+let offsetY=200
 
 for(let i=0;i<pts.length-1;i++){
 
 let x1=pts[i][0]*scale+offsetX
-let y1=(maxy-pts[i][1])*scale+offsetY
+let y1=pts[i][1]*scale+offsetY
 
 let x2=pts[i+1][0]*scale+offsetX
-let y2=(maxy-pts[i+1][1])*scale+offsetY
+let y2=pts[i+1][1]*scale+offsetY
 
 pdf.line(x1,y1,x2,y2)
 
@@ -533,15 +467,20 @@ let len=Math.sqrt(dx*dx+dy*dy)
 let nx=-dy/len
 let ny=dx/len
 
-let outside = area < 0 ? 1 : -1
+let midx=(pts[i][0]+pts[i+1][0])/2
+let midy=(pts[i][1]+pts[i+1][1])/2
 
-nx*=outside
-ny*=outside
+let vx=midx-center[0]
+let vy=midy-center[1]
+
+if(nx*vx + ny*vy <0){
+nx*=-1
+ny*=-1
+}
 
 let mx=(x1+x2)/2 + nx*8
 let my=(y1+y2)/2 + ny*8
 
-pdf.setFontSize(9)
 pdf.text(lines[i].length.toFixed(2)+"m",mx,my)
 
 }
