@@ -8,11 +8,7 @@
 
 <style>
 
-body{
-margin:0;
-font-family:Segoe UI,Arial;
-background:#f3f5f7;
-}
+body{margin:0;font-family:Segoe UI,Arial;background:#f3f5f7;}
 
 header{
 background:#1e293b;
@@ -61,14 +57,10 @@ text-align:center;
 }
 
 input{
-width:40px;
+width:38px;
 padding:3px;
 border:1px solid #ddd;
 border-radius:4px;
-font-size:12px;
-}
-
-select{
 font-size:12px;
 }
 
@@ -121,6 +113,8 @@ width:100%;
 <th>Type</th>
 <th>V</th>
 <th>S</th>
+<th>1m</th>
+<th>1.5m</th>
 </tr>
 </table>
 
@@ -163,6 +157,10 @@ row.innerHTML=`
 <td><input type="checkbox" onchange="draw()"></td>
 
 <td><input type="checkbox" onchange="draw()"></td>
+
+<td><input type="checkbox" onchange="draw()"></td>
+
+<td><input type="checkbox" onchange="draw()"></td>
 `
 
 }
@@ -191,9 +189,11 @@ let type=row.querySelector("select").value
 
 let vertical=inputs[4].checked
 let setback=inputs[5].checked
+let side1=inputs[6].checked
+let side15=inputs[7].checked
 
 if(!isNaN(length)){
-lines.push({length,angle,type,vertical,setback})
+lines.push({length,angle,type,vertical,setback,side1,side15})
 }
 
 })
@@ -332,8 +332,6 @@ else ctx.lineTo(s[0],s[1])
 
 ctx.stroke()
 
-ctx.font="12px Arial"
-
 for(let i=0;i<pts.length-1;i++){
 
 let p1=pts[i]
@@ -359,22 +357,17 @@ ny*=-1
 }
 
 if(lines[i].setback){
-
-drawSetback(ctx,p1,p2,nx,ny,6,toScreen,"rgba(0,0,255,0.3)")
-drawSetback(ctx,p1,p2,nx,ny,4.5,toScreen,"rgba(0,200,0,0.3)")
-drawSetback(ctx,p1,p2,nx,ny,3,toScreen,"rgba(255,0,0,0.3)")
-drawSetback(ctx,p1,p2,nx,ny,2,toScreen,"rgba(255,200,0,0.3)")
-
+drawSetback(ctx,p1,p2,nx,ny,6,toScreen,"rgba(0,0,255,0.25)")
+drawSetback(ctx,p1,p2,nx,ny,4.5,toScreen,"rgba(0,200,0,0.25)")
+drawSetback(ctx,p1,p2,nx,ny,3,toScreen,"rgba(255,0,0,0.25)")
+drawSetback(ctx,p1,p2,nx,ny,2,toScreen,"rgba(255,200,0,0.25)")
 }
 
-let s1=toScreen(p1)
-let s2=toScreen(p2)
+if(lines[i].side1)
+drawSetback(ctx,p1,p2,nx,ny,1,toScreen,"rgba(120,120,120,0.35)")
 
-let mx=(s1[0]+s2[0])/2 - nx*25
-let my=(s1[1]+s2[1])/2 - ny*25
-
-ctx.fillStyle="black"
-ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
+if(lines[i].side15)
+drawSetback(ctx,p1,p2,nx,ny,1.5,toScreen,"rgba(120,120,120,0.35)")
 
 }
 
@@ -402,8 +395,6 @@ ctx.setLineDash([])
 }
 
 function exportPDF(){
-
-readLines()
 
 const {jsPDF}=window.jspdf
 
