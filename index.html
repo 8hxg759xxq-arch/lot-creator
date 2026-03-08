@@ -8,7 +8,11 @@
 
 <style>
 
-body{margin:0;font-family:Segoe UI,Arial;background:#f3f5f7;}
+body{
+margin:0;
+font-family:Segoe UI,Arial;
+background:#f3f5f7;
+}
 
 header{
 background:#1e293b;
@@ -18,7 +22,10 @@ font-size:18px;
 font-weight:600;
 }
 
-#container{display:flex;height:calc(100vh - 52px);}
+#container{
+display:flex;
+height:calc(100vh - 52px);
+}
 
 #panel{
 width:380px;
@@ -28,9 +35,16 @@ box-shadow:2px 0 8px rgba(0,0,0,0.08);
 overflow:auto;
 }
 
-canvas{flex:1;background:white;}
+canvas{
+flex:1;
+background:white;
+}
 
-table{width:100%;border-collapse:collapse;font-size:13px;}
+table{
+width:100%;
+border-collapse:collapse;
+font-size:13px;
+}
 
 th,td{
 border-bottom:1px solid #eee;
@@ -38,7 +52,12 @@ padding:6px;
 text-align:center;
 }
 
-input{width:55px;padding:4px;border:1px solid #ddd;border-radius:4px;}
+input{
+width:55px;
+padding:4px;
+border:1px solid #ddd;
+border-radius:4px;
+}
 
 button{
 margin-top:6px;
@@ -88,13 +107,14 @@ width:100%;
 <th>"</th>
 <th>Type</th>
 <th>Vertical</th>
-<th>Setback</th>
+<th>Setbacks</th>
 </tr>
 </table>
 
 <button onclick="addLineRow()">Add Line</button>
 
 <h3>Export</h3>
+
 <button onclick="exportPDF()">Generate PDF</button>
 
 </div>
@@ -117,14 +137,21 @@ row.innerHTML=`
 <td><input oninput="draw()"></td>
 <td><input oninput="draw()"></td>
 <td><input oninput="draw()"></td>
+
 <td>
 <select onchange="draw()">
 <option value="interior">Interior</option>
 <option value="external">External</option>
 </select>
 </td>
-<td><input type="checkbox" onchange="draw()"></td>
-<td><input type="checkbox" onchange="draw()"></td>
+
+<td>
+<input type="checkbox" onchange="draw()">
+</td>
+
+<td>
+<input type="checkbox" onchange="draw()">
+</td>
 `
 
 }
@@ -150,6 +177,7 @@ let s=parseFloat(inputs[3].value)||0
 let angle=d+(m/60)+(s/3600)
 
 let type=row.querySelector("select").value
+
 let vertical=inputs[4].checked
 let setback=inputs[5].checked
 
@@ -193,9 +221,37 @@ return pts
 
 }
 
+function snapVertical(pts){
+
+for(let i=0;i<lines.length;i++){
+
+if(lines[i].vertical){
+
+let p1=pts[i]
+let p2=pts[i+1]
+
+let dx=p2[0]-p1[0]
+let dy=p2[1]-p1[1]
+
+let angle=Math.atan2(dy,dx)*180/Math.PI
+
+let rot1=90-angle
+let rot2=-90-angle
+
+rotation=Math.abs(rot1)<Math.abs(rot2)?rot1:rot2
+
+break
+
+}
+
+}
+
+}
+
 function centroid(pts){
 
-let cx=0,cy=0
+let cx=0
+let cy=0
 
 pts.forEach(p=>{
 cx+=p[0]
@@ -219,6 +275,15 @@ let pts=calculatePoints()
 
 if(pts.length<2)return
 
+snapVertical(pts)
+
+let rad=rotation*Math.PI/180
+
+pts=pts.map(p=>[
+p[0]*Math.cos(rad)-p[1]*Math.sin(rad),
+p[0]*Math.sin(rad)+p[1]*Math.cos(rad)
+])
+
 let center=centroid(pts)
 
 let xs=pts.map(p=>p[0])
@@ -234,30 +299,25 @@ let scale=Math.min(
 600/(maxy-miny||1)
 )
 
-function worldToScreen(p){
-
+function toScreen(p){
 return[
 (p[0]-minx)*scale+150,
 (maxy-p[1])*scale+100
 ]
-
 }
-
-ctx.lineWidth=2
-ctx.strokeStyle="black"
 
 ctx.beginPath()
 
 pts.forEach((p,i)=>{
-
-let s=worldToScreen(p)
-
+let s=toScreen(p)
 if(i===0)ctx.moveTo(s[0],s[1])
 else ctx.lineTo(s[0],s[1])
-
 })
 
+ctx.lineWidth=2
 ctx.stroke()
+
+ctx.font="12px Arial"
 
 for(let i=0;i<pts.length-1;i++){
 
@@ -278,57 +338,42 @@ let midy=(p1[1]+p2[1])/2
 let vx=midx-center[0]
 let vy=midy-center[1]
 
-if(nx*vx+ny*vy>0){
+if(nx*vx+ny*vy<0){
 nx*=-1
 ny*=-1
 }
 
 if(lines[i].setback){
 
-drawOffsetLine(ctx,p1,p2,nx,ny,6,scale,"blue",true)
-drawOffsetLine(ctx,p1,p2,nx,ny,4.5,scale,"green")
-drawOffsetLine(ctx,p1,p2,nx,ny,3,scale,"red")
-drawOffsetLine(ctx,p1,p2,nx,ny,2,scale,"yellow")
+drawOffset(ctx,p1,p2,nx,ny,6,scale,toScreen,"blue",[10,6])
+drawOffset(ctx,p1,p2,nx,ny,4.5,scale,toScreen,"green")
+drawOffset(ctx,p1,p2,nx,ny,3,scale,toScreen,"red")
+drawOffset(ctx,p1,p2,nx,ny,2,scale,toScreen,"yellow")
+
+}
+
+let s1=toScreen(p1)
+let s2=toScreen(p2)
+
+let mx=(s1[0]+s2[0])/2 + nx*25
+let my=(s1[1]+s2[1])/2 + ny*25
+
+ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
 
 }
 
 }
 
-}
+function drawOffset(ctx,p1,p2,nx,ny,d,scale,toScreen,color,dash=[]){
 
-function drawOffsetLine(ctx,p1,p2,nx,ny,dist,scale,color,dashed=false){
+let a=[p1[0]+nx*d,p1[1]+ny*d]
+let b=[p2[0]+nx*d,p2[1]+ny*d]
 
-let x1=p1[0]+nx*dist
-let y1=p1[1]+ny*dist
-
-let x2=p2[0]+nx*dist
-let y2=p2[1]+ny*dist
-
-let canvas=document.getElementById("canvas")
-
-let ctx2=canvas.getContext("2d")
-
-let xs=[x1,x2]
-let ys=[y1,y2]
-
-let minx=Math.min(...xs)
-let maxy=Math.max(...ys)
-
-let s1=[
-(x1-minx)*scale+150,
-(maxy-y1)*scale+100
-]
-
-let s2=[
-(x2-minx)*scale+150,
-(maxy-y2)*scale+100
-]
+let s1=toScreen(a)
+let s2=toScreen(b)
 
 ctx.strokeStyle=color
-ctx.lineWidth=2
-
-if(dashed)ctx.setLineDash([10,6])
-else ctx.setLineDash([])
+ctx.setLineDash(dash)
 
 ctx.beginPath()
 ctx.moveTo(s1[0],s1[1])
@@ -341,6 +386,8 @@ ctx.setLineDash([])
 
 function exportPDF(){
 
+readLines()
+
 const {jsPDF}=window.jspdf
 
 let pdf=new jsPDF({
@@ -350,6 +397,15 @@ format:"a3"
 })
 
 let pts=calculatePoints()
+
+snapVertical(pts)
+
+let rad=rotation*Math.PI/180
+
+pts=pts.map(p=>[
+p[0]*Math.cos(rad)-p[1]*Math.sin(rad),
+p[0]*Math.sin(rad)+p[1]*Math.cos(rad)
+])
 
 let xs=pts.map(p=>p[0])
 let ys=pts.map(p=>p[1])
@@ -373,6 +429,7 @@ let offsetX=(pageWidth-(maxx-minx)*scale)/2-minx*scale
 let offsetY=(pageHeight-(maxy-miny)*scale)/2
 
 pdf.setDrawColor(200,0,0)
+pdf.setLineWidth(0.6)
 
 for(let i=0;i<pts.length-1;i++){
 
