@@ -10,37 +10,36 @@
 
 body{
 margin:0;
-font-family:Segoe UI,Arial;
+font-family:Arial;
 background:#f3f5f7;
 }
 
 header{
 background:#1e293b;
 color:white;
-padding:14px 20px;
+padding:14px;
 font-size:18px;
-font-weight:600;
 }
 
 #container{
 display:flex;
-height:calc(100vh - 52px);
+height:calc(100vh - 50px);
 }
 
 #panel{
-width:320px;
+width:300px;
 min-width:220px;
 max-width:700px;
 background:white;
 padding:15px;
-box-shadow:2px 0 8px rgba(0,0,0,0.08);
 overflow:auto;
+box-shadow:2px 0 8px rgba(0,0,0,0.08);
 }
 
 #divider{
 width:6px;
+background:#ddd;
 cursor:col-resize;
-background:#e2e8f0;
 }
 
 canvas{
@@ -62,20 +61,11 @@ text-align:center;
 
 input{
 width:36px;
-padding:3px;
-border:1px solid #ddd;
-border-radius:4px;
-font-size:12px;
 }
 
 button{
 margin-top:6px;
-padding:8px 12px;
-border:none;
-border-radius:6px;
-background:#2563eb;
-color:white;
-cursor:pointer;
+padding:6px;
 width:100%;
 }
 
@@ -91,43 +81,24 @@ width:100%;
 
 <div id="panel">
 
-<h3>Start Direction</h3>
-
-<select id="startDirection" onchange="draw()">
-<option value="0">East</option>
-<option value="90">North</option>
-<option value="180">West</option>
-<option value="270">South</option>
-</select>
-
-<h3>Boundary Direction</h3>
-
-<select id="directionMode" onchange="draw()">
-<option value="cw">Clockwise</option>
-<option value="ccw">Counter Clockwise</option>
-</select>
-
-<h3>Boundaries</h3>
-
 <table id="lineTable">
+
 <tr>
 <th>L</th>
 <th>°</th>
 <th>'</th>
 <th>"</th>
-<th>T</th>
 <th>V</th>
 <th>S</th>
 <th>1</th>
 <th>1.5</th>
 </tr>
+
 </table>
 
 <button onclick="addLineRow()">Add Line</button>
 
-<h3>Export</h3>
-
-<button onclick="exportPDF()">Generate PDF</button>
+<button onclick="exportPDF()">Export PDF</button>
 
 </div>
 
@@ -142,23 +113,18 @@ width:100%;
 let lines=[]
 let rotation=0
 
+const canvas=document.getElementById("canvas")
+const ctx=canvas.getContext("2d")
+
 function addLineRow(){
 
-let row=document.getElementById("lineTable").insertRow()
+let row=lineTable.insertRow()
 
 row.innerHTML=`
 <td><input oninput="draw()"></td>
 <td><input oninput="draw()"></td>
 <td><input oninput="draw()"></td>
 <td><input oninput="draw()"></td>
-
-<td>
-<select onchange="draw()">
-<option value="interior">I</option>
-<option value="external">E</option>
-</select>
-</td>
-
 <td><input type="checkbox" onchange="draw()"></td>
 <td><input type="checkbox" onchange="draw()"></td>
 <td><input type="checkbox" onchange="draw()"></td>
@@ -187,14 +153,11 @@ let d=parseFloat(inputs[1].value)||0
 let m=parseFloat(inputs[2].value)||0
 let s=parseFloat(inputs[3].value)||0
 
-let angle=d+(m/60)+(s/3600)
-
-let type=row.querySelector("select").value
+let angle=(d+(m/60)+(s/3600))*Math.PI/180
 
 lines.push({
 length:length,
 angle:angle,
-type:type,
 vertical:inputs[4].checked,
 setback:inputs[5].checked,
 side1:inputs[6].checked,
@@ -209,11 +172,7 @@ function calculatePoints(){
 
 let pts=[[0,0]]
 
-let direction=parseFloat(
-document.getElementById("startDirection").value
-)*Math.PI/180
-
-let mode=document.getElementById("directionMode").value
+let direction=0
 
 let x=0
 let y=0
@@ -225,11 +184,7 @@ y+=l.length*Math.sin(direction)
 
 pts.push([x,y])
 
-let turn=l.type==="interior"
-?(180-l.angle)*Math.PI/180
-:l.angle*Math.PI/180
-
-direction+=mode==="cw"?-turn:turn
+direction-=l.angle
 
 })
 
@@ -247,34 +202,7 @@ cx+=p[0]
 cy+=p[1]
 })
 
-return [cx/pts.length,cy/pts.length]
-
-}
-
-function snapVertical(pts){
-
-for(let i=0;i<lines.length;i++){
-
-if(lines[i].vertical){
-
-let p1=pts[i]
-let p2=pts[i+1]
-
-let dx=p2[0]-p1[0]
-let dy=p2[1]-p1[1]
-
-let angle=Math.atan2(dy,dx)*180/Math.PI
-
-let rot1=90-angle
-let rot2=-90-angle
-
-rotation=Math.abs(rot1)<Math.abs(rot2)?rot1:rot2
-
-break
-
-}
-
-}
+return[cx/pts.length,cy/pts.length]
 
 }
 
@@ -282,23 +210,11 @@ function draw(){
 
 readLines()
 
-let canvas=document.getElementById("canvas")
-let ctx=canvas.getContext("2d")
-
 ctx.clearRect(0,0,canvas.width,canvas.height)
 
 let pts=calculatePoints()
 
 if(pts.length<2)return
-
-snapVertical(pts)
-
-let rad=rotation*Math.PI/180
-
-pts=pts.map(p=>[
-p[0]*Math.cos(rad)-p[1]*Math.sin(rad),
-p[0]*Math.sin(rad)+p[1]*Math.cos(rad)
-])
 
 let center=centroid(pts)
 
@@ -318,21 +234,23 @@ let scale=Math.min(
 )
 
 function toScreen(p){
-return[
-(p[0]-minx)*scale + pad/2,
-(maxy-p[1])*scale + pad/2
-]
-}
 
-ctx.lineWidth=2
-ctx.strokeStyle="black"
+return[
+(p[0]-minx)*scale+pad/2,
+(maxy-p[1])*scale+pad/2
+]
+
+}
 
 ctx.beginPath()
 
 pts.forEach((p,i)=>{
+
 let s=toScreen(p)
-if(i===0)ctx.moveTo(s[0],s[1])
+
+if(i==0)ctx.moveTo(s[0],s[1])
 else ctx.lineTo(s[0],s[1])
+
 })
 
 ctx.stroke()
@@ -350,18 +268,17 @@ let len=Math.sqrt(dx*dx+dy*dy)
 let nx=-dy/len
 let ny=dx/len
 
-let midx=(p1[0]+p2[0])/2
-let midy=(p1[1]+p2[1])/2
+let mid=[(p1[0]+p2[0])/2,(p1[1]+p2[1])/2]
 
-let vx=center[0]-midx
-let vy=center[1]-midy
+let vx=center[0]-mid[0]
+let vy=center[1]-mid[1]
 
 if(nx*vx+ny*vy<0){
 nx*=-1
 ny*=-1
 }
 
-function setback(d,color){
+function drawSetback(d,color){
 
 let a=[p1[0]+nx*d,p1[1]+ny*d]
 let b=[p2[0]+nx*d,p2[1]+ny*d]
@@ -370,8 +287,7 @@ let s1=toScreen(a)
 let s2=toScreen(b)
 
 ctx.strokeStyle=color
-ctx.lineWidth=1
-ctx.setLineDash([8,8])
+ctx.setLineDash([6,6])
 
 ctx.beginPath()
 ctx.moveTo(s1[0],s1[1])
@@ -384,15 +300,25 @@ ctx.setLineDash([])
 
 if(lines[i].setback){
 
-setback(6,"rgba(0,0,255,0.25)")
-setback(4.5,"rgba(0,200,0,0.25)")
-setback(3,"rgba(255,0,0,0.25)")
-setback(2,"rgba(255,200,0,0.25)")
+drawSetback(6,"rgba(0,0,255,0.3)")
+drawSetback(4.5,"rgba(0,200,0,0.3)")
+drawSetback(3,"rgba(255,0,0,0.3)")
+drawSetback(2,"rgba(255,200,0,0.3)")
 
 }
 
-if(lines[i].side1) setback(1,"rgba(120,120,120,0.35)")
-if(lines[i].side15) setback(1.5,"rgba(120,120,120,0.35)")
+if(lines[i].side1) drawSetback(1,"rgba(120,120,120,0.4)")
+if(lines[i].side15) drawSetback(1.5,"rgba(120,120,120,0.4)")
+
+/* dimensions outside */
+
+let s1=toScreen(p1)
+let s2=toScreen(p2)
+
+let mx=(s1[0]+s2[0])/2 - nx*25
+let my=(s1[1]+s2[1])/2 - ny*25
+
+ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
 
 }
 
@@ -404,13 +330,11 @@ readLines()
 
 const {jsPDF}=window.jspdf
 
-let pdf=new jsPDF({
-orientation:"portrait",
-unit:"mm",
-format:"a3"
-})
+let pdf=new jsPDF("portrait","mm","a3")
 
 let pts=calculatePoints()
+
+let center=centroid(pts)
 
 let xs=pts.map(p=>p[0])
 let ys=pts.map(p=>p[1])
@@ -423,7 +347,7 @@ let maxy=Math.max(...ys)
 let width=maxx-minx
 let height=maxy-miny
 
-let mmPerMeter=5
+let mmPerMeter=10   // 1:100 scale
 
 let pageWidth=pdf.internal.pageSize.getWidth()
 let pageHeight=pdf.internal.pageSize.getHeight()
@@ -431,31 +355,31 @@ let pageHeight=pdf.internal.pageSize.getHeight()
 let offsetX=(pageWidth-width*mmPerMeter)/2 - minx*mmPerMeter
 let offsetY=(pageHeight-height*mmPerMeter)/2
 
-pdf.setDrawColor(200,0,0)
-
 for(let i=0;i<pts.length-1;i++){
 
-let x1=pts[i][0]*mmPerMeter + offsetX
-let y1=(maxy-pts[i][1])*mmPerMeter + offsetY
+let p1=pts[i]
+let p2=pts[i+1]
 
-let x2=pts[i+1][0]*mmPerMeter + offsetX
-let y2=(maxy-pts[i+1][1])*mmPerMeter + offsetY
+let x1=p1[0]*mmPerMeter+offsetX
+let y1=(maxy-p1[1])*mmPerMeter+offsetY
 
+let x2=p2[0]*mmPerMeter+offsetX
+let y2=(maxy-p2[1])*mmPerMeter+offsetY
+
+pdf.setDrawColor(200,0,0)
 pdf.line(x1,y1,x2,y2)
 
+/* dimension */
+
+let mx=(x1+x2)/2
+let my=(y1+y2)/2
+
+pdf.setFontSize(9)
+pdf.text(lines[i].length.toFixed(2)+"m",mx,my)
+
 }
-
-let img=new Image()
-
-img.onload=function(){
-
-pdf.addImage(img,"PNG",pageWidth-108,pageHeight-33,100,25)
 
 pdf.save("site-plan.pdf")
-
-}
-
-img.src="logos.png"
 
 }
 
@@ -464,6 +388,8 @@ addLineRow()
 addLineRow()
 
 draw()
+
+/* panel resize */
 
 const divider=document.getElementById("divider")
 const panel=document.getElementById("panel")
