@@ -234,6 +234,18 @@ return pts
 
 }
 
+function polygonArea(pts){
+
+let area=0
+
+for(let i=0;i<pts.length-1;i++){
+area += pts[i][0]*pts[i+1][1] - pts[i+1][0]*pts[i][1]
+}
+
+return area/2
+
+}
+
 function autoVerticalRotation(pts){
 
 for(let i=0;i<lines.length;i++){
@@ -248,7 +260,6 @@ let dy=p2[1]-p1[1]
 
 let angle=Math.atan2(dy,dx)*180/Math.PI
 
-// rotate to nearest vertical instead of forcing flip
 let rot1 = 90 - angle
 let rot2 = -90 - angle
 
@@ -309,6 +320,8 @@ p[0]*Math.cos(rad)-p[1]*Math.sin(rad),
 p[0]*Math.sin(rad)+p[1]*Math.cos(rad)
 ])
 
+let area=polygonArea(pts)
+
 let xs=pts.map(p=>p[0])
 let ys=pts.map(p=>p[1])
 
@@ -361,8 +374,13 @@ let len=Math.sqrt(dx*dx+dy*dy)
 let nx=-dy/len
 let ny=dx/len
 
-let mx=(p1[0]+p2[0])/2 + nx*15
-let my=(p1[1]+p2[1])/2 + ny*15
+let outside = area < 0 ? 1 : -1
+
+nx*=outside
+ny*=outside
+
+let mx=(p1[0]+p2[0])/2 + nx*20
+let my=(p1[1]+p2[1])/2 + ny*20
 
 ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
 
@@ -476,6 +494,8 @@ p[0]*Math.cos(rad)-p[1]*Math.sin(rad),
 p[0]*Math.sin(rad)+p[1]*Math.cos(rad)
 ])
 
+let area=polygonArea(pts)
+
 let pageWidth=pdf.internal.pageSize.getWidth()
 let pageHeight=pdf.internal.pageSize.getHeight()
 
@@ -513,29 +533,20 @@ let len=Math.sqrt(dx*dx+dy*dy)
 let nx=-dy/len
 let ny=dx/len
 
-let mx=(x1+x2)/2 + nx*6
-let my=(y1+y2)/2 + ny*6
+let outside = area < 0 ? 1 : -1
+
+nx*=outside
+ny*=outside
+
+let mx=(x1+x2)/2 + nx*8
+let my=(y1+y2)/2 + ny*8
 
 pdf.setFontSize(9)
 pdf.text(lines[i].length.toFixed(2)+"m",mx,my)
 
 }
 
-let img=new Image()
-
-img.onload=function(){
-
-pdf.addImage(img,"PNG",pageWidth-108,pageHeight-33,100,25)
-
 pdf.save("site-plan.pdf")
-
-}
-
-img.onerror=function(){
-pdf.save("site-plan.pdf")
-}
-
-img.src="logos.png"
 
 }
 
@@ -547,4 +558,3 @@ addLineRow()
 
 </body>
 </html>
-
