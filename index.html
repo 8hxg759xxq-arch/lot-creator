@@ -8,7 +8,11 @@
 
 <style>
 
-body{margin:0;font-family:Segoe UI,Arial;background:#f3f5f7;}
+body{
+margin:0;
+font-family:Segoe UI,Arial;
+background:#f3f5f7;
+}
 
 header{
 background:#1e293b;
@@ -57,7 +61,7 @@ text-align:center;
 }
 
 input{
-width:38px;
+width:36px;
 padding:3px;
 border:1px solid #ddd;
 border-radius:4px;
@@ -76,6 +80,7 @@ width:100%;
 }
 
 </style>
+
 </head>
 
 <body>
@@ -102,7 +107,7 @@ width:100%;
 <option value="ccw">Counter Clockwise</option>
 </select>
 
-<h3>Boundary Input</h3>
+<h3>Boundaries</h3>
 
 <table id="lineTable">
 <tr>
@@ -110,11 +115,11 @@ width:100%;
 <th>°</th>
 <th>'</th>
 <th>"</th>
-<th>Type</th>
+<th>T</th>
 <th>V</th>
 <th>S</th>
-<th>1m</th>
-<th>1.5m</th>
+<th>1</th>
+<th>1.5</th>
 </tr>
 </table>
 
@@ -149,17 +154,14 @@ row.innerHTML=`
 
 <td>
 <select onchange="draw()">
-<option value="interior">Int</option>
-<option value="external">Ext</option>
+<option value="interior">I</option>
+<option value="external">E</option>
 </select>
 </td>
 
 <td><input type="checkbox" onchange="draw()"></td>
-
 <td><input type="checkbox" onchange="draw()"></td>
-
 <td><input type="checkbox" onchange="draw()"></td>
-
 <td><input type="checkbox" onchange="draw()"></td>
 `
 
@@ -179,6 +181,8 @@ let inputs=row.querySelectorAll("input")
 
 let length=parseFloat(inputs[0].value)
 
+if(isNaN(length))return
+
 let d=parseFloat(inputs[1].value)||0
 let m=parseFloat(inputs[2].value)||0
 let s=parseFloat(inputs[3].value)||0
@@ -187,14 +191,15 @@ let angle=d+(m/60)+(s/3600)
 
 let type=row.querySelector("select").value
 
-let vertical=inputs[4].checked
-let setback=inputs[5].checked
-let side1=inputs[6].checked
-let side15=inputs[7].checked
-
-if(!isNaN(length)){
-lines.push({length,angle,type,vertical,setback,side1,side15})
-}
+lines.push({
+length:length,
+angle:angle,
+type:type,
+vertical:inputs[4].checked,
+setback:inputs[5].checked,
+side1:inputs[6].checked,
+side15:inputs[7].checked
+})
 
 })
 
@@ -232,6 +237,20 @@ return pts
 
 }
 
+function centroid(pts){
+
+let cx=0
+let cy=0
+
+pts.forEach(p=>{
+cx+=p[0]
+cy+=p[1]
+})
+
+return [cx/pts.length,cy/pts.length]
+
+}
+
 function snapVertical(pts){
 
 for(let i=0;i<lines.length;i++){
@@ -256,20 +275,6 @@ break
 }
 
 }
-
-}
-
-function centroid(pts){
-
-let cx=0
-let cy=0
-
-pts.forEach(p=>{
-cx+=p[0]
-cy+=p[1]
-})
-
-return [cx/pts.length,cy/pts.length]
 
 }
 
@@ -305,17 +310,17 @@ let maxx=Math.max(...xs)
 let miny=Math.min(...ys)
 let maxy=Math.max(...ys)
 
-let padding=80
+let pad=80
 
 let scale=Math.min(
-(canvas.width-padding)/(maxx-minx||1),
-(canvas.height-padding)/(maxy-miny||1)
+(canvas.width-pad)/(maxx-minx||1),
+(canvas.height-pad)/(maxy-miny||1)
 )
 
 function toScreen(p){
 return[
-(p[0]-minx)*scale + padding/2,
-(maxy-p[1])*scale + padding/2
+(p[0]-minx)*scale + pad/2,
+(maxy-p[1])*scale + pad/2
 ]
 }
 
@@ -356,24 +361,7 @@ nx*=-1
 ny*=-1
 }
 
-if(lines[i].setback){
-drawSetback(ctx,p1,p2,nx,ny,6,toScreen,"rgba(0,0,255,0.25)")
-drawSetback(ctx,p1,p2,nx,ny,4.5,toScreen,"rgba(0,200,0,0.25)")
-drawSetback(ctx,p1,p2,nx,ny,3,toScreen,"rgba(255,0,0,0.25)")
-drawSetback(ctx,p1,p2,nx,ny,2,toScreen,"rgba(255,200,0,0.25)")
-}
-
-if(lines[i].side1)
-drawSetback(ctx,p1,p2,nx,ny,1,toScreen,"rgba(120,120,120,0.35)")
-
-if(lines[i].side15)
-drawSetback(ctx,p1,p2,nx,ny,1.5,toScreen,"rgba(120,120,120,0.35)")
-
-}
-
-}
-
-function drawSetback(ctx,p1,p2,nx,ny,d,toScreen,color){
+function setback(d,color){
 
 let a=[p1[0]+nx*d,p1[1]+ny*d]
 let b=[p2[0]+nx*d,p2[1]+ny*d]
@@ -394,7 +382,25 @@ ctx.setLineDash([])
 
 }
 
+if(lines[i].setback){
+
+setback(6,"rgba(0,0,255,0.25)")
+setback(4.5,"rgba(0,200,0,0.25)")
+setback(3,"rgba(255,0,0,0.25)")
+setback(2,"rgba(255,200,0,0.25)")
+
+}
+
+if(lines[i].side1) setback(1,"rgba(120,120,120,0.35)")
+if(lines[i].side15) setback(1.5,"rgba(120,120,120,0.35)")
+
+}
+
+}
+
 function exportPDF(){
+
+readLines()
 
 const {jsPDF}=window.jspdf
 
@@ -414,28 +420,26 @@ let maxx=Math.max(...xs)
 let miny=Math.min(...ys)
 let maxy=Math.max(...ys)
 
+let width=maxx-minx
+let height=maxy-miny
+
+let mmPerMeter=5
+
 let pageWidth=pdf.internal.pageSize.getWidth()
 let pageHeight=pdf.internal.pageSize.getHeight()
 
-let margin=25
-
-let scale=Math.min(
-(pageWidth-margin*2)/(maxx-minx),
-(pageHeight-margin*2)/(maxy-miny)
-)
-
-let offsetX=(pageWidth-(maxx-minx)*scale)/2-minx*scale
-let offsetY=(pageHeight-(maxy-miny)*scale)/2
+let offsetX=(pageWidth-width*mmPerMeter)/2 - minx*mmPerMeter
+let offsetY=(pageHeight-height*mmPerMeter)/2
 
 pdf.setDrawColor(200,0,0)
 
 for(let i=0;i<pts.length-1;i++){
 
-let x1=pts[i][0]*scale+offsetX
-let y1=(maxy-pts[i][1])*scale+offsetY
+let x1=pts[i][0]*mmPerMeter + offsetX
+let y1=(maxy-pts[i][1])*mmPerMeter + offsetY
 
-let x2=pts[i+1][0]*scale+offsetX
-let y2=(maxy-pts[i+1][1])*scale+offsetY
+let x2=pts[i+1][0]*mmPerMeter + offsetX
+let y2=(maxy-pts[i+1][1])*mmPerMeter + offsetY
 
 pdf.line(x1,y1,x2,y2)
 
