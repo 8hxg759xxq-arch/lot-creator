@@ -80,6 +80,7 @@ width:100%;
 }
 
 </style>
+
 </head>
 
 <body>
@@ -247,45 +248,6 @@ return [cx/pts.length,cy/pts.length]
 
 }
 
-function autoVerticalRotation(pts){
-
-for(let i=0;i<lines.length;i++){
-
-if(lines[i].vertical){
-
-let p1=pts[i]
-let p2=pts[i+1]
-
-let dx=p2[0]-p1[0]
-let dy=p2[1]-p1[1]
-
-let angle=Math.atan2(dy,dx)*180/Math.PI
-
-let rot1=90-angle
-let rot2=-90-angle
-
-rotation=Math.abs(rot1)<Math.abs(rot2)?rot1:rot2
-
-break
-
-}
-
-}
-
-}
-
-function generateLot(){
-
-readLines()
-
-let pts=calculatePoints()
-
-autoVerticalRotation(pts)
-
-draw()
-
-}
-
 function draw(){
 
 let canvas=document.getElementById("canvas")
@@ -341,6 +303,7 @@ else ctx.lineTo(p[0],p[1])
 })
 
 ctx.lineWidth=2
+ctx.strokeStyle="black"
 ctx.stroke()
 
 ctx.font="12px Arial"
@@ -381,7 +344,6 @@ ctx.restore()
 
 function rotateLot(){rotation+=90;draw()}
 function flipLot(){flip*=-1;draw()}
-
 function snapCenter(){zoom=1;panX=0;panY=0;draw()}
 
 function clearLot(){
@@ -405,31 +367,6 @@ draw()
 
 }
 
-canvas.addEventListener("wheel",e=>{
-e.preventDefault()
-zoom*=e.deltaY<0?1.1:0.9
-draw()
-})
-
-let dragging=false,lastX,lastY
-
-canvas.addEventListener("mousedown",e=>{
-dragging=true
-lastX=e.clientX
-lastY=e.clientY
-})
-
-canvas.addEventListener("mousemove",e=>{
-if(!dragging)return
-panX+=e.clientX-lastX
-panY+=e.clientY-lastY
-lastX=e.clientX
-lastY=e.clientY
-draw()
-})
-
-canvas.addEventListener("mouseup",()=>dragging=false)
-
 function exportPDF(){
 
 readLines()
@@ -444,48 +381,60 @@ format:"a3"
 
 let pts=calculatePoints()
 
-let center=centroid(pts)
+let xs=pts.map(p=>p[0])
+let ys=pts.map(p=>p[1])
 
-let scale=10
-let offsetX=100
-let offsetY=200
+let minx=Math.min(...xs)
+let maxx=Math.max(...xs)
+let miny=Math.min(...ys)
+let maxy=Math.max(...ys)
+
+let pageWidth=pdf.internal.pageSize.getWidth()
+let pageHeight=pdf.internal.pageSize.getHeight()
+
+let scale=Math.min(
+(pageWidth-80)/(maxx-minx),
+(pageHeight-80)/(maxy-miny)
+)
+
+let offsetX=(pageWidth-(maxx-minx)*scale)/2-minx*scale
+let offsetY=(pageHeight-(maxy-miny)*scale)/2
+
+pdf.setDrawColor(200,0,0)
+pdf.setLineWidth(0.6)
 
 for(let i=0;i<pts.length-1;i++){
 
 let x1=pts[i][0]*scale+offsetX
-let y1=pts[i][1]*scale+offsetY
+let y1=(maxy-pts[i][1])*scale+offsetY
 
 let x2=pts[i+1][0]*scale+offsetX
-let y2=pts[i+1][1]*scale+offsetY
+let y2=(maxy-pts[i+1][1])*scale+offsetY
 
 pdf.line(x1,y1,x2,y2)
 
-let dx=x2-x1
-let dy=y2-y1
-let len=Math.sqrt(dx*dx+dy*dy)
+let mx=(x1+x2)/2
+let my=(y1+y2)/2
 
-let nx=-dy/len
-let ny=dx/len
-
-let midx=(pts[i][0]+pts[i+1][0])/2
-let midy=(pts[i][1]+pts[i+1][1])/2
-
-let vx=midx-center[0]
-let vy=midy-center[1]
-
-if(nx*vx + ny*vy <0){
-nx*=-1
-ny*=-1
-}
-
-let mx=(x1+x2)/2 + nx*8
-let my=(y1+y2)/2 + ny*8
-
-pdf.text(lines[i].length.toFixed(2)+"m",mx,my)
+pdf.setFontSize(9)
+pdf.text(lines[i].length.toFixed(2)+"m",mx+3,my+3)
 
 }
 
+let img=new Image()
+
+img.onload=function(){
+
+pdf.addImage(img,"PNG",pageWidth-108,pageHeight-33,100,25)
 pdf.save("site-plan.pdf")
+
+}
+
+img.onerror=function(){
+pdf.save("site-plan.pdf")
+}
+
+img.src="logos.png"
 
 }
 
