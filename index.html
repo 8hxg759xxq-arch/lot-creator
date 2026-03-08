@@ -8,11 +8,7 @@
 
 <style>
 
-body{
-margin:0;
-font-family:Segoe UI,Arial;
-background:#f3f5f7;
-}
+body{margin:0;font-family:Segoe UI,Arial;background:#f3f5f7;}
 
 header{
 background:#1e293b;
@@ -22,10 +18,7 @@ font-size:18px;
 font-weight:600;
 }
 
-#container{
-display:flex;
-height:calc(100vh - 52px);
-}
+#container{display:flex;height:calc(100vh - 52px);}
 
 #panel{
 width:380px;
@@ -35,23 +28,9 @@ box-shadow:2px 0 8px rgba(0,0,0,0.08);
 overflow:auto;
 }
 
-#divider{
-width:6px;
-cursor:col-resize;
-background:#e2e8f0;
-}
+canvas{flex:1;background:white;}
 
-canvas{
-flex:1;
-background:white;
-cursor:grab;
-}
-
-table{
-width:100%;
-border-collapse:collapse;
-font-size:13px;
-}
+table{width:100%;border-collapse:collapse;font-size:13px;}
 
 th,td{
 border-bottom:1px solid #eee;
@@ -89,7 +68,6 @@ width:100%;
 <div id="panel">
 
 <h3>Start Direction</h3>
-
 <select id="startDirection" onchange="draw()">
 <option value="0">East</option>
 <option value="90">North</option>
@@ -98,7 +76,6 @@ width:100%;
 </select>
 
 <h3>Boundary Direction</h3>
-
 <select id="directionMode" onchange="draw()">
 <option value="cw">Clockwise</option>
 <option value="ccw">Counter Clockwise</option>
@@ -113,26 +90,15 @@ width:100%;
 <th>'</th>
 <th>"</th>
 <th>Type</th>
-<th>Vertical</th>
 </tr>
 </table>
 
 <button onclick="addLineRow()">Add Line</button>
 
-<h3>Tools</h3>
-
-<button onclick="rotateLot()">Rotate</button>
-<button onclick="flipLot()">Flip</button>
-<button onclick="snapCenter()">Snap To Center</button>
-<button onclick="clearLot()">Clear</button>
-
 <h3>Export</h3>
-
 <button onclick="exportPDF()">Generate PDF</button>
 
 </div>
-
-<div id="divider"></div>
 
 <canvas id="canvas" width="1200" height="800"></canvas>
 
@@ -141,11 +107,6 @@ width:100%;
 <script>
 
 let lines=[]
-let zoom=1
-let panX=0
-let panY=0
-let rotation=0
-let flip=1
 
 function addLineRow(){
 
@@ -162,7 +123,6 @@ row.innerHTML=`
 <option value="external">External</option>
 </select>
 </td>
-<td><input type="checkbox" onchange="draw()"></td>
 `
 
 }
@@ -178,7 +138,6 @@ rows.forEach((row,i)=>{
 if(i===0)return
 
 let inputs=row.querySelectorAll("input")
-let type=row.querySelector("select").value
 
 let length=parseFloat(inputs[0].value)
 let d=parseFloat(inputs[1].value)||0
@@ -186,6 +145,8 @@ let m=parseFloat(inputs[2].value)||0
 let s=parseFloat(inputs[3].value)||0
 
 let angle=d+(m/60)+(s/3600)
+
+let type=row.querySelector("select").value
 
 if(!isNaN(length)){
 lines.push({length,angle,type})
@@ -227,23 +188,16 @@ return pts
 
 }
 
-function polygonArea(pts){
+function centroid(pts){
 
-let sum=0
+let cx=0,cy=0
 
-for(let i=0;i<pts.length-1;i++){
+pts.forEach(p=>{
+cx+=p[0]
+cy+=p[1]
+})
 
-let x1=pts[i][0]
-let y1=pts[i][1]
-
-let x2=pts[i+1][0]
-let y2=pts[i+1][1]
-
-sum+=(x2-x1)*(y2+y1)
-
-}
-
-return sum
+return [cx/pts.length,cy/pts.length]
 
 }
 
@@ -258,9 +212,9 @@ ctx.clearRect(0,0,canvas.width,canvas.height)
 
 let pts=calculatePoints()
 
-if(pts.length<2) return
+if(pts.length<2)return
 
-let orientation=polygonArea(pts)
+let center=centroid(pts)
 
 let xs=pts.map(p=>p[0])
 let ys=pts.map(p=>p[1])
@@ -273,14 +227,14 @@ let maxy=Math.max(...ys)
 let scale=Math.min(
 900/(maxx-minx||1),
 600/(maxy-miny||1)
-)*zoom
+)
 
 let screen=[]
 
 pts.forEach(p=>{
 
-let x=(p[0]-minx)*scale+150+panX
-let y=(maxy-p[1])*scale+100+panY
+let x=(p[0]-minx)*scale+150
+let y=(maxy-p[1])*scale+100
 
 screen.push([x,y])
 
@@ -289,12 +243,11 @@ screen.push([x,y])
 ctx.beginPath()
 
 screen.forEach((p,i)=>{
-if(i===0) ctx.moveTo(p[0],p[1])
+if(i===0)ctx.moveTo(p[0],p[1])
 else ctx.lineTo(p[0],p[1])
 })
 
 ctx.lineWidth=2
-ctx.strokeStyle="black"
 ctx.stroke()
 
 ctx.font="12px Arial"
@@ -312,7 +265,13 @@ let len=Math.sqrt(dx*dx+dy*dy)
 let nx=-dy/len
 let ny=dx/len
 
-if(orientation>0){
+let midx=(pts[i][0]+pts[i+1][0])/2
+let midy=(pts[i][1]+pts[i+1][1])/2
+
+let vx=midx-center[0]
+let vy=midy-center[1]
+
+if(nx*vx + ny*vy <0){
 nx*=-1
 ny*=-1
 }
@@ -326,23 +285,9 @@ ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
 
 }
 
-function rotateLot(){rotation+=90;draw()}
-function flipLot(){flip*=-1;draw()}
-function snapCenter(){zoom=1;panX=0;panY=0;draw()}
-
-function clearLot(){
-
-document.querySelectorAll("#lineTable tr:not(:first-child)").forEach(r=>r.remove())
-
-addLineRow()
-addLineRow()
-addLineRow()
-
-draw()
-
-}
-
 function exportPDF(){
+
+readLines()
 
 const {jsPDF}=window.jspdf
 
@@ -353,6 +298,8 @@ format:"a3"
 })
 
 let pts=calculatePoints()
+
+let center=centroid(pts)
 
 let xs=pts.map(p=>p[0])
 let ys=pts.map(p=>p[1])
@@ -365,15 +312,18 @@ let maxy=Math.max(...ys)
 let pageWidth=pdf.internal.pageSize.getWidth()
 let pageHeight=pdf.internal.pageSize.getHeight()
 
+let margin=25
+
 let scale=Math.min(
-(pageWidth-60)/(maxx-minx||1),
-(pageHeight-60)/(maxy-miny||1)
+(pageWidth-margin*2)/(maxx-minx),
+(pageHeight-margin*2)/(maxy-miny)
 )
 
 let offsetX=(pageWidth-(maxx-minx)*scale)/2-minx*scale
 let offsetY=(pageHeight-(maxy-miny)*scale)/2
 
 pdf.setDrawColor(200,0,0)
+pdf.setLineWidth(0.6)
 
 for(let i=0;i<pts.length-1;i++){
 
@@ -385,20 +335,38 @@ let y2=(maxy-pts[i+1][1])*scale+offsetY
 
 pdf.line(x1,y1,x2,y2)
 
-let mx=(x1+x2)/2
-let my=(y1+y2)/2
+let dx=x2-x1
+let dy=y2-y1
 
-pdf.text(lines[i].length.toFixed(2)+"m",mx+3,my+3)
+let len=Math.sqrt(dx*dx+dy*dy)
+
+let nx=-dy/len
+let ny=dx/len
+
+let midx=(pts[i][0]+pts[i+1][0])/2
+let midy=(pts[i][1]+pts[i+1][1])/2
+
+let vx=midx-center[0]
+let vy=midy-center[1]
+
+if(nx*vx + ny*vy <0){
+nx*=-1
+ny*=-1
+}
+
+let mx=(x1+x2)/2 + nx*6
+let my=(y1+y2)/2 + ny*6
+
+pdf.setFontSize(9)
+pdf.text(lines[i].length.toFixed(2)+"m",mx,my)
 
 }
 
 let img=new Image()
 
 img.onload=function(){
-
 pdf.addImage(img,"PNG",pageWidth-108,pageHeight-33,100,25)
 pdf.save("site-plan.pdf")
-
 }
 
 img.src="logos.png"
