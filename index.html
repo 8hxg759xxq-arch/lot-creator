@@ -38,12 +38,7 @@ padding:6px;
 text-align:center;
 }
 
-input{
-width:55px;
-padding:4px;
-border:1px solid #ddd;
-border-radius:4px;
-}
+input{width:55px;padding:4px;border:1px solid #ddd;border-radius:4px;}
 
 button{
 margin-top:6px;
@@ -68,6 +63,7 @@ width:100%;
 <div id="panel">
 
 <h3>Start Direction</h3>
+
 <select id="startDirection" onchange="draw()">
 <option value="0">East</option>
 <option value="90">North</option>
@@ -76,6 +72,7 @@ width:100%;
 </select>
 
 <h3>Boundary Direction</h3>
+
 <select id="directionMode" onchange="draw()">
 <option value="cw">Clockwise</option>
 <option value="ccw">Counter Clockwise</option>
@@ -90,6 +87,8 @@ width:100%;
 <th>'</th>
 <th>"</th>
 <th>Type</th>
+<th>Vertical</th>
+<th>Setback</th>
 </tr>
 </table>
 
@@ -107,6 +106,7 @@ width:100%;
 <script>
 
 let lines=[]
+let rotation=0
 
 function addLineRow(){
 
@@ -123,6 +123,8 @@ row.innerHTML=`
 <option value="external">External</option>
 </select>
 </td>
+<td><input type="checkbox" onchange="draw()"></td>
+<td><input type="checkbox" onchange="draw()"></td>
 `
 
 }
@@ -140,6 +142,7 @@ if(i===0)return
 let inputs=row.querySelectorAll("input")
 
 let length=parseFloat(inputs[0].value)
+
 let d=parseFloat(inputs[1].value)||0
 let m=parseFloat(inputs[2].value)||0
 let s=parseFloat(inputs[3].value)||0
@@ -147,9 +150,11 @@ let s=parseFloat(inputs[3].value)||0
 let angle=d+(m/60)+(s/3600)
 
 let type=row.querySelector("select").value
+let vertical=inputs[4].checked
+let setback=inputs[5].checked
 
 if(!isNaN(length)){
-lines.push({length,angle,type})
+lines.push({length,angle,type,vertical,setback})
 }
 
 })
@@ -229,33 +234,35 @@ let scale=Math.min(
 600/(maxy-miny||1)
 )
 
-let screen=[]
+function worldToScreen(p){
 
-pts.forEach(p=>{
+return[
+(p[0]-minx)*scale+150,
+(maxy-p[1])*scale+100
+]
 
-let x=(p[0]-minx)*scale+150
-let y=(maxy-p[1])*scale+100
+}
 
-screen.push([x,y])
-
-})
+ctx.lineWidth=2
+ctx.strokeStyle="black"
 
 ctx.beginPath()
 
-screen.forEach((p,i)=>{
-if(i===0)ctx.moveTo(p[0],p[1])
-else ctx.lineTo(p[0],p[1])
+pts.forEach((p,i)=>{
+
+let s=worldToScreen(p)
+
+if(i===0)ctx.moveTo(s[0],s[1])
+else ctx.lineTo(s[0],s[1])
+
 })
 
-ctx.lineWidth=2
 ctx.stroke()
 
-ctx.font="12px Arial"
+for(let i=0;i<pts.length-1;i++){
 
-for(let i=0;i<screen.length-1;i++){
-
-let p1=screen[i]
-let p2=screen[i+1]
+let p1=pts[i]
+let p2=pts[i+1]
 
 let dx=p2[0]-p1[0]
 let dy=p2[1]-p1[1]
@@ -265,29 +272,74 @@ let len=Math.sqrt(dx*dx+dy*dy)
 let nx=-dy/len
 let ny=dx/len
 
-let midx=(pts[i][0]+pts[i+1][0])/2
-let midy=(pts[i][1]+pts[i+1][1])/2
+let midx=(p1[0]+p2[0])/2
+let midy=(p1[1]+p2[1])/2
 
 let vx=midx-center[0]
 let vy=midy-center[1]
 
-if(nx*vx + ny*vy <0){
+if(nx*vx+ny*vy>0){
 nx*=-1
 ny*=-1
 }
 
-let mx=(p1[0]+p2[0])/2 + nx*25
-let my=(p1[1]+p2[1])/2 + ny*25
+if(lines[i].setback){
 
-ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
+drawOffsetLine(ctx,p1,p2,nx,ny,6,scale,"blue",true)
+drawOffsetLine(ctx,p1,p2,nx,ny,4.5,scale,"green")
+drawOffsetLine(ctx,p1,p2,nx,ny,3,scale,"red")
+drawOffsetLine(ctx,p1,p2,nx,ny,2,scale,"yellow")
 
 }
+
+}
+
+}
+
+function drawOffsetLine(ctx,p1,p2,nx,ny,dist,scale,color,dashed=false){
+
+let x1=p1[0]+nx*dist
+let y1=p1[1]+ny*dist
+
+let x2=p2[0]+nx*dist
+let y2=p2[1]+ny*dist
+
+let canvas=document.getElementById("canvas")
+
+let ctx2=canvas.getContext("2d")
+
+let xs=[x1,x2]
+let ys=[y1,y2]
+
+let minx=Math.min(...xs)
+let maxy=Math.max(...ys)
+
+let s1=[
+(x1-minx)*scale+150,
+(maxy-y1)*scale+100
+]
+
+let s2=[
+(x2-minx)*scale+150,
+(maxy-y2)*scale+100
+]
+
+ctx.strokeStyle=color
+ctx.lineWidth=2
+
+if(dashed)ctx.setLineDash([10,6])
+else ctx.setLineDash([])
+
+ctx.beginPath()
+ctx.moveTo(s1[0],s1[1])
+ctx.lineTo(s2[0],s2[1])
+ctx.stroke()
+
+ctx.setLineDash([])
 
 }
 
 function exportPDF(){
-
-readLines()
 
 const {jsPDF}=window.jspdf
 
@@ -298,8 +350,6 @@ format:"a3"
 })
 
 let pts=calculatePoints()
-
-let center=centroid(pts)
 
 let xs=pts.map(p=>p[0])
 let ys=pts.map(p=>p[1])
@@ -323,7 +373,6 @@ let offsetX=(pageWidth-(maxx-minx)*scale)/2-minx*scale
 let offsetY=(pageHeight-(maxy-miny)*scale)/2
 
 pdf.setDrawColor(200,0,0)
-pdf.setLineWidth(0.6)
 
 for(let i=0;i<pts.length-1;i++){
 
@@ -335,38 +384,16 @@ let y2=(maxy-pts[i+1][1])*scale+offsetY
 
 pdf.line(x1,y1,x2,y2)
 
-let dx=x2-x1
-let dy=y2-y1
-
-let len=Math.sqrt(dx*dx+dy*dy)
-
-let nx=-dy/len
-let ny=dx/len
-
-let midx=(pts[i][0]+pts[i+1][0])/2
-let midy=(pts[i][1]+pts[i+1][1])/2
-
-let vx=midx-center[0]
-let vy=midy-center[1]
-
-if(nx*vx + ny*vy <0){
-nx*=-1
-ny*=-1
-}
-
-let mx=(x1+x2)/2 + nx*6
-let my=(y1+y2)/2 + ny*6
-
-pdf.setFontSize(9)
-pdf.text(lines[i].length.toFixed(2)+"m",mx,my)
-
 }
 
 let img=new Image()
 
 img.onload=function(){
+
 pdf.addImage(img,"PNG",pageWidth-108,pageHeight-33,100,25)
+
 pdf.save("site-plan.pdf")
+
 }
 
 img.src="logos.png"
