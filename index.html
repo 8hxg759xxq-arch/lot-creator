@@ -28,11 +28,19 @@ height:calc(100vh - 52px);
 }
 
 #panel{
-width:380px;
+width:320px;
+min-width:220px;
+max-width:700px;
 background:white;
-padding:20px;
+padding:15px;
 box-shadow:2px 0 8px rgba(0,0,0,0.08);
 overflow:auto;
+}
+
+#divider{
+width:6px;
+cursor:col-resize;
+background:#e2e8f0;
 }
 
 canvas{
@@ -43,20 +51,25 @@ background:white;
 table{
 width:100%;
 border-collapse:collapse;
-font-size:13px;
+font-size:12px;
 }
 
 th,td{
 border-bottom:1px solid #eee;
-padding:6px;
+padding:4px;
 text-align:center;
 }
 
 input{
-width:55px;
-padding:4px;
+width:42px;
+padding:3px;
 border:1px solid #ddd;
 border-radius:4px;
+font-size:12px;
+}
+
+select{
+font-size:12px;
 }
 
 button{
@@ -71,6 +84,7 @@ width:100%;
 }
 
 </style>
+
 </head>
 
 <body>
@@ -101,13 +115,13 @@ width:100%;
 
 <table id="lineTable">
 <tr>
-<th>Length</th>
+<th>L</th>
 <th>°</th>
 <th>'</th>
 <th>"</th>
 <th>Type</th>
-<th>Vertical</th>
-<th>Setbacks</th>
+<th>V</th>
+<th>S</th>
 </tr>
 </table>
 
@@ -118,6 +132,8 @@ width:100%;
 <button onclick="exportPDF()">Generate PDF</button>
 
 </div>
+
+<div id="divider"></div>
 
 <canvas id="canvas" width="1200" height="800"></canvas>
 
@@ -140,18 +156,14 @@ row.innerHTML=`
 
 <td>
 <select onchange="draw()">
-<option value="interior">Interior</option>
-<option value="external">External</option>
+<option value="interior">Int</option>
+<option value="external">Ext</option>
 </select>
 </td>
 
-<td>
-<input type="checkbox" onchange="draw()">
-</td>
+<td><input type="checkbox" onchange="draw()"></td>
 
-<td>
-<input type="checkbox" onchange="draw()">
-</td>
+<td><input type="checkbox" onchange="draw()"></td>
 `
 
 }
@@ -462,6 +474,20 @@ addLineRow()
 addLineRow()
 
 draw()
+
+const divider=document.getElementById("divider")
+const panel=document.getElementById("panel")
+
+let resizing=false
+
+divider.addEventListener("mousedown",()=>resizing=true)
+
+document.addEventListener("mousemove",e=>{
+if(!resizing)return
+panel.style.width=e.clientX+"px"
+})
+
+document.addEventListener("mouseup",()=>resizing=false)
 
 </script>
 
