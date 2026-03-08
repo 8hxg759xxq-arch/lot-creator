@@ -10,41 +10,49 @@
 
 body{
 margin:0;
-font-family:Arial;
-background:#f3f5f7;
+font-family:Segoe UI,Arial;
+background:#eef2f6;
 }
 
 header{
 background:#1e293b;
 color:white;
-padding:14px;
+padding:16px 20px;
 font-size:18px;
+font-weight:600;
 }
 
 #container{
 display:flex;
-height:calc(100vh - 50px);
+height:calc(100vh - 56px);
 }
 
 #panel{
-width:300px;
-min-width:220px;
+width:320px;
+min-width:240px;
 max-width:700px;
 background:white;
-padding:15px;
+padding:18px;
+box-shadow:3px 0 10px rgba(0,0,0,0.08);
 overflow:auto;
-box-shadow:2px 0 8px rgba(0,0,0,0.08);
 }
 
 #divider{
 width:6px;
-background:#ddd;
 cursor:col-resize;
+background:#d7dde5;
 }
 
 canvas{
 flex:1;
 background:white;
+}
+
+h3{
+margin-top:10px;
+margin-bottom:8px;
+font-size:14px;
+color:#334155;
 }
 
 table{
@@ -53,20 +61,43 @@ border-collapse:collapse;
 font-size:12px;
 }
 
-th,td{
-border-bottom:1px solid #eee;
+th{
+background:#f1f5f9;
+padding:6px;
+font-weight:600;
+}
+
+td{
 padding:4px;
+border-bottom:1px solid #eee;
 text-align:center;
 }
 
 input{
-width:36px;
+width:40px;
+padding:3px;
+border:1px solid #cbd5e1;
+border-radius:4px;
+font-size:12px;
 }
 
 button{
 margin-top:6px;
-padding:6px;
-width:100%;
+padding:8px;
+border:none;
+border-radius:6px;
+background:#2563eb;
+color:white;
+cursor:pointer;
+font-size:13px;
+}
+
+button.secondary{
+background:#64748b;
+}
+
+button:hover{
+opacity:0.9;
 }
 
 </style>
@@ -80,6 +111,8 @@ width:100%;
 <div id="container">
 
 <div id="panel">
+
+<h3>Lot Boundaries</h3>
 
 <table id="lineTable">
 
@@ -96,9 +129,12 @@ width:100%;
 
 </table>
 
-<button onclick="addLineRow()">Add Line</button>
+<button onclick="addLineRow()">Add Boundary</button>
+<button class="secondary" onclick="clearLot()">Clear</button>
 
-<button onclick="exportPDF()">Export PDF</button>
+<h3>Export</h3>
+
+<button onclick="exportPDF()">Generate A3 PDF</button>
 
 </div>
 
@@ -130,6 +166,25 @@ row.innerHTML=`
 <td><input type="checkbox" onchange="draw()"></td>
 <td><input type="checkbox" onchange="draw()"></td>
 `
+
+}
+
+function clearLot(){
+
+lines=[]
+rotation=0
+
+let table=document.getElementById("lineTable")
+
+while(table.rows.length>1){
+table.deleteRow(1)
+}
+
+addLineRow()
+addLineRow()
+addLineRow()
+
+draw()
 
 }
 
@@ -226,21 +281,22 @@ let maxx=Math.max(...xs)
 let miny=Math.min(...ys)
 let maxy=Math.max(...ys)
 
-let pad=80
+let padding=80
 
 let scale=Math.min(
-(canvas.width-pad)/(maxx-minx||1),
-(canvas.height-pad)/(maxy-miny||1)
+(canvas.width-padding)/(maxx-minx||1),
+(canvas.height-padding)/(maxy-miny||1)
 )
 
 function toScreen(p){
-
 return[
-(p[0]-minx)*scale+pad/2,
-(maxy-p[1])*scale+pad/2
+(p[0]-minx)*scale+padding/2,
+(maxy-p[1])*scale+padding/2
 ]
-
 }
+
+ctx.lineWidth=2
+ctx.strokeStyle="#000"
 
 ctx.beginPath()
 
@@ -248,7 +304,7 @@ pts.forEach((p,i)=>{
 
 let s=toScreen(p)
 
-if(i==0)ctx.moveTo(s[0],s[1])
+if(i===0)ctx.moveTo(s[0],s[1])
 else ctx.lineTo(s[0],s[1])
 
 })
@@ -278,7 +334,7 @@ nx*=-1
 ny*=-1
 }
 
-function drawSetback(d,color){
+function setback(d,color){
 
 let a=[p1[0]+nx*d,p1[1]+ny*d]
 let b=[p2[0]+nx*d,p2[1]+ny*d]
@@ -287,6 +343,7 @@ let s1=toScreen(a)
 let s2=toScreen(b)
 
 ctx.strokeStyle=color
+ctx.lineWidth=1
 ctx.setLineDash([6,6])
 
 ctx.beginPath()
@@ -300,17 +357,15 @@ ctx.setLineDash([])
 
 if(lines[i].setback){
 
-drawSetback(6,"rgba(0,0,255,0.3)")
-drawSetback(4.5,"rgba(0,200,0,0.3)")
-drawSetback(3,"rgba(255,0,0,0.3)")
-drawSetback(2,"rgba(255,200,0,0.3)")
+setback(6,"rgba(0,0,255,0.25)")
+setback(4.5,"rgba(0,200,0,0.25)")
+setback(3,"rgba(255,0,0,0.25)")
+setback(2,"rgba(255,200,0,0.25)")
 
 }
 
-if(lines[i].side1) drawSetback(1,"rgba(120,120,120,0.4)")
-if(lines[i].side15) drawSetback(1.5,"rgba(120,120,120,0.4)")
-
-/* dimensions outside */
+if(lines[i].side1) setback(1,"rgba(120,120,120,0.4)")
+if(lines[i].side15) setback(1.5,"rgba(120,120,120,0.4)")
 
 let s1=toScreen(p1)
 let s2=toScreen(p2)
@@ -318,6 +373,7 @@ let s2=toScreen(p2)
 let mx=(s1[0]+s2[0])/2 - nx*25
 let my=(s1[1]+s2[1])/2 - ny*25
 
+ctx.fillStyle="#000"
 ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
 
 }
@@ -347,7 +403,7 @@ let maxy=Math.max(...ys)
 let width=maxx-minx
 let height=maxy-miny
 
-let mmPerMeter=10   // 1:100 scale
+let mmPerMeter=10
 
 let pageWidth=pdf.internal.pageSize.getWidth()
 let pageHeight=pdf.internal.pageSize.getHeight()
@@ -360,22 +416,73 @@ for(let i=0;i<pts.length-1;i++){
 let p1=pts[i]
 let p2=pts[i+1]
 
-let x1=p1[0]*mmPerMeter+offsetX
-let y1=(maxy-p1[1])*mmPerMeter+offsetY
+let dx=p2[0]-p1[0]
+let dy=p2[1]-p1[1]
 
-let x2=p2[0]*mmPerMeter+offsetX
-let y2=(maxy-p2[1])*mmPerMeter+offsetY
+let len=Math.sqrt(dx*dx+dy*dy)
+
+let nx=-dy/len
+let ny=dx/len
+
+let mid=[(p1[0]+p2[0])/2,(p1[1]+p2[1])/2]
+
+let vx=center[0]-mid[0]
+let vy=center[1]-mid[1]
+
+if(nx*vx+ny*vy<0){
+nx*=-1
+ny*=-1
+}
+
+function setback(d,color){
+
+let a=[p1[0]+nx*d,p1[1]+ny*d]
+let b=[p2[0]+nx*d,p2[1]+ny*d]
+
+pdf.setDrawColor(color)
+
+pdf.setLineDash([2,2],0)
+
+pdf.line(
+a[0]*mmPerMeter+offsetX,
+(maxy-a[1])*mmPerMeter+offsetY,
+b[0]*mmPerMeter+offsetX,
+(maxy-b[1])*mmPerMeter+offsetY
+)
+
+pdf.setLineDash([])
+
+}
 
 pdf.setDrawColor(200,0,0)
-pdf.line(x1,y1,x2,y2)
 
-/* dimension */
+pdf.line(
+p1[0]*mmPerMeter+offsetX,
+(maxy-p1[1])*mmPerMeter+offsetY,
+p2[0]*mmPerMeter+offsetX,
+(maxy-p2[1])*mmPerMeter+offsetY
+)
 
-let mx=(x1+x2)/2
-let my=(y1+y2)/2
+if(lines[i].setback){
 
-pdf.setFontSize(9)
-pdf.text(lines[i].length.toFixed(2)+"m",mx,my)
+setback(6,[0,0,255])
+setback(4.5,[0,200,0])
+setback(3,[255,0,0])
+setback(2,[255,200,0])
+
+}
+
+if(lines[i].side1) setback(1,[120,120,120])
+if(lines[i].side15) setback(1.5,[120,120,120])
+
+let mx=(p1[0]+p2[0])/2
+let my=(p1[1]+p2[1])/2
+
+pdf.text(
+lines[i].length.toFixed(2)+"m",
+mx*mmPerMeter+offsetX,
+(maxy-my)*mmPerMeter+offsetY
+)
 
 }
 
@@ -388,8 +495,6 @@ addLineRow()
 addLineRow()
 
 draw()
-
-/* panel resize */
 
 const divider=document.getElementById("divider")
 const panel=document.getElementById("panel")
