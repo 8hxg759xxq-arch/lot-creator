@@ -90,14 +90,11 @@ background:#2563eb;
 color:white;
 cursor:pointer;
 font-size:13px;
+width:100%;
 }
 
 button.secondary{
 background:#64748b;
-}
-
-button:hover{
-opacity:0.9;
 }
 
 </style>
@@ -201,7 +198,6 @@ if(i===0)return
 let inputs=row.querySelectorAll("input")
 
 let length=parseFloat(inputs[0].value)
-
 if(isNaN(length))return
 
 let d=parseFloat(inputs[1].value)||0
@@ -226,9 +222,7 @@ side15:inputs[7].checked
 function calculatePoints(){
 
 let pts=[[0,0]]
-
 let direction=0
-
 let x=0
 let y=0
 
@@ -244,6 +238,39 @@ direction-=l.angle
 })
 
 return pts
+
+}
+
+function getRotation(pts){
+
+for(let i=0;i<lines.length;i++){
+
+if(lines[i].vertical){
+
+let p1=pts[i]
+let p2=pts[i+1]
+
+let dx=p2[0]-p1[0]
+let dy=p2[1]-p1[1]
+
+let ang=Math.atan2(dy,dx)
+
+return (Math.PI/2)-ang
+
+}
+
+}
+
+return 0
+
+}
+
+function rotatePts(pts,rot){
+
+return pts.map(p=>[
+p[0]*Math.cos(rot)-p[1]*Math.sin(rot),
+p[0]*Math.sin(rot)+p[1]*Math.cos(rot)
+])
 
 }
 
@@ -268,6 +295,10 @@ readLines()
 ctx.clearRect(0,0,canvas.width,canvas.height)
 
 let pts=calculatePoints()
+
+rotation=getRotation(pts)
+
+pts=rotatePts(pts,rotation)
 
 if(pts.length<2)return
 
@@ -373,7 +404,6 @@ let s2=toScreen(p2)
 let mx=(s1[0]+s2[0])/2 - nx*25
 let my=(s1[1]+s2[1])/2 - ny*25
 
-ctx.fillStyle="#000"
 ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
 
 }
@@ -389,6 +419,10 @@ const {jsPDF}=window.jspdf
 let pdf=new jsPDF("portrait","mm","a3")
 
 let pts=calculatePoints()
+
+rotation=getRotation(pts)
+
+pts=rotatePts(pts,rotation)
 
 let center=centroid(pts)
 
@@ -416,44 +450,6 @@ for(let i=0;i<pts.length-1;i++){
 let p1=pts[i]
 let p2=pts[i+1]
 
-let dx=p2[0]-p1[0]
-let dy=p2[1]-p1[1]
-
-let len=Math.sqrt(dx*dx+dy*dy)
-
-let nx=-dy/len
-let ny=dx/len
-
-let mid=[(p1[0]+p2[0])/2,(p1[1]+p2[1])/2]
-
-let vx=center[0]-mid[0]
-let vy=center[1]-mid[1]
-
-if(nx*vx+ny*vy<0){
-nx*=-1
-ny*=-1
-}
-
-function setback(d,color){
-
-let a=[p1[0]+nx*d,p1[1]+ny*d]
-let b=[p2[0]+nx*d,p2[1]+ny*d]
-
-pdf.setDrawColor(color)
-
-pdf.setLineDash([2,2],0)
-
-pdf.line(
-a[0]*mmPerMeter+offsetX,
-(maxy-a[1])*mmPerMeter+offsetY,
-b[0]*mmPerMeter+offsetX,
-(maxy-b[1])*mmPerMeter+offsetY
-)
-
-pdf.setLineDash([])
-
-}
-
 pdf.setDrawColor(200,0,0)
 
 pdf.line(
@@ -461,27 +457,6 @@ p1[0]*mmPerMeter+offsetX,
 (maxy-p1[1])*mmPerMeter+offsetY,
 p2[0]*mmPerMeter+offsetX,
 (maxy-p2[1])*mmPerMeter+offsetY
-)
-
-if(lines[i].setback){
-
-setback(6,[0,0,255])
-setback(4.5,[0,200,0])
-setback(3,[255,0,0])
-setback(2,[255,200,0])
-
-}
-
-if(lines[i].side1) setback(1,[120,120,120])
-if(lines[i].side15) setback(1.5,[120,120,120])
-
-let mx=(p1[0]+p2[0])/2
-let my=(p1[1]+p2[1])/2
-
-pdf.text(
-lines[i].length.toFixed(2)+"m",
-mx*mmPerMeter+offsetX,
-(maxy-my)*mmPerMeter+offsetY
 )
 
 }
