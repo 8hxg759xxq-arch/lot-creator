@@ -66,9 +66,15 @@ text-align:center;
 }
 
 input{
-width:40px;
+width:42px;
 border:1px solid #cbd5e1;
 border-radius:4px;
+}
+
+select{
+border:1px solid #cbd5e1;
+border-radius:4px;
+font-size:12px;
 }
 
 button{
@@ -107,6 +113,7 @@ background:#64748b;
 <th>°</th>
 <th>'</th>
 <th>"</th>
+<th>Angle</th>
 <th>V</th>
 <th>S</th>
 <th>1</th>
@@ -148,6 +155,14 @@ row.innerHTML=`
 <td><input oninput="draw()"></td>
 <td><input oninput="draw()"></td>
 <td><input oninput="draw()"></td>
+
+<td>
+<select onchange="draw()">
+<option value="internal">Internal</option>
+<option value="external">External</option>
+</select>
+</td>
+
 <td><input type="checkbox" onchange="draw()"></td>
 <td><input type="checkbox" onchange="draw()"></td>
 <td><input type="checkbox" onchange="draw()"></td>
@@ -181,9 +196,9 @@ rows.forEach((row,i)=>{
 if(i===0)return
 
 let inputs=row.querySelectorAll("input")
+let type=row.querySelector("select").value
 
 let length=parseFloat(inputs[0].value)
-
 if(isNaN(length))return
 
 let d=parseFloat(inputs[1].value)||0
@@ -193,8 +208,9 @@ let s=parseFloat(inputs[3].value)||0
 let angle=(d+(m/60)+(s/3600))*Math.PI/180
 
 lines.push({
-length:length,
-angle:angle,
+length,
+angle,
+type,
 vertical:inputs[4].checked,
 setback:inputs[5].checked,
 side1:inputs[6].checked,
@@ -220,47 +236,18 @@ y+=l.length*Math.sin(direction)
 
 pts.push([x,y])
 
-let turn=Math.PI-l.angle
+let turn
+
+if(l.type==="internal")
+turn=Math.PI-l.angle
+else
+turn=l.angle
 
 direction-=turn
 
 })
 
 return pts
-
-}
-
-function autoCloseLot(){
-
-readLines()
-
-let pts=calculatePoints()
-
-let last=pts[pts.length-1]
-
-let dx=-last[0]
-let dy=-last[1]
-
-let length=Math.sqrt(dx*dx+dy*dy)
-
-let angle=Math.atan2(dy,dx)
-
-let deg=Math.abs(angle*180/Math.PI)
-
-let row=lineTable.insertRow()
-
-row.innerHTML=`
-<td><input value="${length.toFixed(2)}"></td>
-<td><input value="${Math.floor(deg)}"></td>
-<td><input value="0"></td>
-<td><input value="0"></td>
-<td><input type="checkbox"></td>
-<td><input type="checkbox"></td>
-<td><input type="checkbox"></td>
-<td><input type="checkbox"></td>
-`
-
-draw()
 
 }
 
@@ -273,15 +260,12 @@ if(lines[i].vertical){
 let p1=pts[i]
 let p2=pts[i+1]
 
-let dx=p2[0]-p1[0]
-let dy=p2[1]-p1[1]
+let ang=Math.atan2(p2[1]-p1[1],p2[0]-p1[0])
 
-let ang=Math.atan2(dy,dx)
+let r1=(Math.PI/2)-ang
+let r2=(-Math.PI/2)-ang
 
-let rot1=(Math.PI/2)-ang
-let rot2=(-Math.PI/2)-ang
-
-return Math.abs(rot1)<Math.abs(rot2)?rot1:rot2
+return Math.abs(r1)<Math.abs(r2)?r1:r2
 
 }
 
@@ -302,14 +286,8 @@ p[0]*Math.sin(rot)+p[1]*Math.cos(rot)
 
 function centroid(pts){
 
-let cx=0
-let cy=0
-
-pts.forEach(p=>{
-cx+=p[0]
-cy+=p[1]
-})
-
+let cx=0,cy=0
+pts.forEach(p=>{cx+=p[0];cy+=p[1]})
 return[cx/pts.length,cy/pts.length]
 
 }
@@ -323,7 +301,6 @@ ctx.clearRect(0,0,canvas.width,canvas.height)
 let pts=calculatePoints()
 
 rotation=getRotation(pts)
-
 pts=rotatePts(pts,rotation)
 
 if(pts.length<2)return
@@ -387,6 +364,48 @@ ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
 
 }
 
+function autoCloseLot(){
+
+readLines()
+
+let pts=calculatePoints()
+
+let last=pts[pts.length-1]
+
+let dx=-last[0]
+let dy=-last[1]
+
+let length=Math.sqrt(dx*dx+dy*dy)
+
+let angle=Math.atan2(dy,dx)
+
+let deg=Math.abs(angle*180/Math.PI)
+
+let row=lineTable.insertRow()
+
+row.innerHTML=`
+<td><input value="${length.toFixed(2)}"></td>
+<td><input value="${Math.floor(deg)}"></td>
+<td><input value="0"></td>
+<td><input value="0"></td>
+
+<td>
+<select>
+<option value="internal">Internal</option>
+<option value="external">External</option>
+</select>
+</td>
+
+<td><input type="checkbox"></td>
+<td><input type="checkbox"></td>
+<td><input type="checkbox"></td>
+<td><input type="checkbox"></td>
+`
+
+draw()
+
+}
+
 function exportPDF(){
 
 readLines()
@@ -398,7 +417,6 @@ let pdf=new jsPDF("portrait","mm","a3")
 let pts=calculatePoints()
 
 rotation=getRotation(pts)
-
 pts=rotatePts(pts,rotation)
 
 let xs=pts.map(p=>p[0])
@@ -431,15 +449,6 @@ p2[0]*mmPerMeter+offsetX,
 (maxy-p2[1])*mmPerMeter+offsetY
 )
 
-let mx=(p1[0]+p2[0])/2
-let my=(p1[1]+p2[1])/2
-
-pdf.text(
-lines[i].length.toFixed(2)+"m",
-mx*mmPerMeter+offsetX,
-(maxy-my)*mmPerMeter+offsetY
-)
-
 }
 
 pdf.save("site-plan.pdf")
@@ -451,6 +460,20 @@ addLineRow()
 addLineRow()
 
 draw()
+
+const divider=document.getElementById("divider")
+const panel=document.getElementById("panel")
+
+let resizing=false
+
+divider.addEventListener("mousedown",()=>resizing=true)
+
+document.addEventListener("mousemove",e=>{
+if(!resizing)return
+panel.style.width=e.clientX+"px"
+})
+
+document.addEventListener("mouseup",()=>resizing=false)
 
 </script>
 
