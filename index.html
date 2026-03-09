@@ -141,6 +141,8 @@ background:#64748b;
 <script>
 
 let lines=[]
+let rotation=0
+
 const canvas=document.getElementById("canvas")
 const ctx=canvas.getContext("2d")
 
@@ -161,11 +163,21 @@ row.innerHTML=`
 </select>
 </td>
 
-<td><input type="checkbox" onchange="draw()"></td>
+<td><input type="checkbox" class="vbox" onchange="verticalSelect(this)"></td>
 <td><input type="checkbox" onchange="draw()"></td>
 <td><input type="checkbox" onchange="draw()"></td>
 <td><input type="checkbox" onchange="draw()"></td>
 `
+
+}
+
+function verticalSelect(box){
+
+document.querySelectorAll(".vbox").forEach(b=>{
+if(b!==box) b.checked=false
+})
+
+draw()
 
 }
 
@@ -245,6 +257,18 @@ return pts
 
 }
 
+function polygonArea(pts){
+
+let area=0
+
+for(let i=0;i<pts.length-1;i++){
+area+=pts[i][0]*pts[i+1][1]-pts[i+1][0]*pts[i][1]
+}
+
+return area/2
+
+}
+
 function centroid(pts){
 
 let cx=0
@@ -259,6 +283,39 @@ return[cx/pts.length,cy/pts.length]
 
 }
 
+function getRotation(pts){
+
+for(let i=0;i<lines.length;i++){
+
+if(lines[i].vertical){
+
+let p1=pts[i]
+let p2=pts[i+1]
+
+let ang=Math.atan2(p2[1]-p1[1],p2[0]-p1[0])
+
+let r1=(Math.PI/2)-ang
+let r2=(-Math.PI/2)-ang
+
+return Math.abs(r1)<Math.abs(r2)?r1:r2
+
+}
+
+}
+
+return 0
+
+}
+
+function rotatePts(pts,rot){
+
+return pts.map(p=>[
+p[0]*Math.cos(rot)-p[1]*Math.sin(rot),
+p[0]*Math.sin(rot)+p[1]*Math.cos(rot)
+])
+
+}
+
 function draw(){
 
 readLines()
@@ -267,7 +324,13 @@ ctx.clearRect(0,0,canvas.width,canvas.height)
 
 let pts=calculatePoints()
 
+rotation=getRotation(pts)
+
+pts=rotatePts(pts,rotation)
+
 if(pts.length<2)return
+
+let clockwise=polygonArea(pts)<0
 
 let center=centroid(pts)
 
@@ -316,13 +379,7 @@ let len=Math.sqrt(dx*dx+dy*dy)
 let nx=-dy/len
 let ny=dx/len
 
-let midx=(p1[0]+p2[0])/2
-let midy=(p1[1]+p2[1])/2
-
-let vx=center[0]-midx
-let vy=center[1]-midy
-
-if(nx*vx+ny*vy>0){
+if(clockwise){
 nx*=-1
 ny*=-1
 }
@@ -336,7 +393,6 @@ let s1=toScreen(a)
 let s2=toScreen(b)
 
 ctx.strokeStyle=color
-ctx.lineWidth=1
 ctx.setLineDash([6,6])
 
 ctx.beginPath()
@@ -404,7 +460,7 @@ row.innerHTML=`
 </select>
 </td>
 
-<td><input type="checkbox"></td>
+<td><input type="checkbox" class="vbox" onchange="verticalSelect(this)"></td>
 <td><input type="checkbox"></td>
 <td><input type="checkbox"></td>
 <td><input type="checkbox"></td>
