@@ -66,7 +66,7 @@ text-align:center;
 }
 
 input{
-width:42px;
+width:40px;
 border:1px solid #cbd5e1;
 border-radius:4px;
 }
@@ -74,7 +74,6 @@ border-radius:4px;
 select{
 border:1px solid #cbd5e1;
 border-radius:4px;
-font-size:12px;
 }
 
 button{
@@ -428,67 +427,15 @@ ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
 
 }
 
-function autoCloseLot(){
-
-readLines()
-
-let pts=calculatePoints()
-
-let last=pts[pts.length-1]
-
-let dx=-last[0]
-let dy=-last[1]
-
-let length=Math.sqrt(dx*dx+dy*dy)
-
-let angle=Math.atan2(dy,dx)
-
-let deg=Math.abs(angle*180/Math.PI)
-
-let row=lineTable.insertRow()
-
-row.innerHTML=`
-<td><input value="${length.toFixed(2)}"></td>
-<td><input value="${Math.floor(deg)}"></td>
-<td><input value="0"></td>
-<td><input value="0"></td>
-
-<td>
-<select>
-<option value="internal">Internal</option>
-<option value="external">External</option>
-</select>
-</td>
-
-<td><input type="checkbox" class="vbox" onchange="verticalSelect(this)"></td>
-<td><input type="checkbox"></td>
-<td><input type="checkbox"></td>
-<td><input type="checkbox"></td>
-`
-
-draw()
-
-}
-
 function exportPDF(){
 
 readLines()
 
 const {jsPDF}=window.jspdf
 
-let pdf=new jsPDF({
-orientation:"portrait",
-unit:"mm",
-format:"a3"
-})
+let pdf=new jsPDF("portrait","mm","a3")
 
 let pts=calculatePoints()
-
-rotation=getRotation(pts)
-
-pts=rotatePts(pts,rotation)
-
-let clockwise=polygonArea(pts)<0
 
 let xs=pts.map(p=>p[0])
 let ys=pts.map(p=>p[1])
@@ -507,75 +454,17 @@ let offsetX=(pageWidth-(maxx-minx)*mmPerMeter)/2-minx*mmPerMeter
 let offsetY=(pageHeight-(maxy-miny)*mmPerMeter)/2
 
 pdf.setDrawColor(200,0,0)
-pdf.setLineWidth(0.6)
 
 for(let i=0;i<pts.length-1;i++){
 
 let p1=pts[i]
 let p2=pts[i+1]
 
-let dx=p2[0]-p1[0]
-let dy=p2[1]-p1[1]
-
-let len=Math.sqrt(dx*dx+dy*dy)
-
-let nx=-dy/len
-let ny=dx/len
-
-if(clockwise){
-nx*=-1
-ny*=-1
-}
-
-let x1=p1[0]*mmPerMeter+offsetX
-let y1=(maxy-p1[1])*mmPerMeter+offsetY
-
-let x2=p2[0]*mmPerMeter+offsetX
-let y2=(maxy-p2[1])*mmPerMeter+offsetY
-
-pdf.line(x1,y1,x2,y2)
-
-function setback(d,color){
-
-let a=[p1[0]+nx*d,p1[1]+ny*d]
-let b=[p2[0]+nx*d,p2[1]+ny*d]
-
-let sx1=a[0]*mmPerMeter+offsetX
-let sy1=(maxy-a[1])*mmPerMeter+offsetY
-
-let sx2=b[0]*mmPerMeter+offsetX
-let sy2=(maxy-b[1])*mmPerMeter+offsetY
-
-pdf.setDrawColor(color[0],color[1],color[2])
-pdf.setLineDash([2,2])
-
-pdf.line(sx1,sy1,sx2,sy2)
-
-pdf.setLineDash([])
-
-}
-
-if(lines[i].setback){
-
-setback(6,[0,0,255])
-setback(4.5,[0,200,0])
-setback(3,[255,0,0])
-setback(2,[255,200,0])
-
-}
-
-if(lines[i].side1) setback(1,[120,120,120])
-if(lines[i].side15) setback(1.5,[120,120,120])
-
-let mx=(p1[0]+p2[0])/2 + nx*1.5
-let my=(p1[1]+p2[1])/2 + ny*1.5
-
-pdf.setFontSize(9)
-
-pdf.text(
-lines[i].length.toFixed(2)+"m",
-mx*mmPerMeter+offsetX,
-(maxy-my)*mmPerMeter+offsetY
+pdf.line(
+p1[0]*mmPerMeter+offsetX,
+(maxy-p1[1])*mmPerMeter+offsetY,
+p2[0]*mmPerMeter+offsetX,
+(maxy-p2[1])*mmPerMeter+offsetY
 )
 
 }
@@ -598,3 +487,13 @@ img.src="logos.png"
 
 }
 
+addLineRow()
+addLineRow()
+addLineRow()
+
+draw()
+
+</script>
+
+</body>
+</html>
