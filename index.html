@@ -416,8 +416,8 @@ if(lines[i].side15) setback(1.5,"rgba(120,120,120,0.35)")
 let s1=toScreen(p1)
 let s2=toScreen(p2)
 
-let mx=(s1[0]+s2[0])/2 + nx*25
-let my=(s1[1]+s2[1])/2 + ny*25
+let mx=(s1[0]+s2[0])/2 - nx*25
+let my=(s1[1]+s2[1])/2 - ny*25
 
 ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
 
@@ -514,8 +514,8 @@ setback(2,[255,200,0])
 if(lines[i].side1) setback(1,[120,120,120])
 if(lines[i].side15) setback(1.5,[120,120,120])
 
-let mx=(p1[0]+p2[0])/2 + nx*1.5
-let my=(p1[1]+p2[1])/2 + ny*1.5
+let mx=(p1[0]+p2[0])/2 - nx*1.5
+let my=(p1[1]+p2[1])/2 - ny*1.5
 
 pdf.setFontSize(9)
 
@@ -555,3 +555,4 @@ draw()
 
 </body>
 </html>
+
