@@ -237,11 +237,9 @@ y+=l.length*Math.sin(direction)
 
 pts.push([x,y])
 
-let turn = l.type==="internal"
-? Math.PI-l.angle
-: l.angle
+let turn=l.type==="internal"?Math.PI-l.angle:l.angle
 
-direction -= turn
+direction-=turn
 
 })
 
@@ -249,36 +247,17 @@ return pts
 
 }
 
-function getRotation(pts){
+function centroid(pts){
 
-for(let i=0;i<lines.length;i++){
+let cx=0
+let cy=0
 
-if(lines[i].vertical){
+pts.forEach(p=>{
+cx+=p[0]
+cy+=p[1]
+})
 
-let p1=pts[i]
-let p2=pts[i+1]
-
-let ang=Math.atan2(p2[1]-p1[1],p2[0]-p1[0])
-
-let r1=(Math.PI/2)-ang
-let r2=(-Math.PI/2)-ang
-
-return Math.abs(r1)<Math.abs(r2)?r1:r2
-
-}
-
-}
-
-return 0
-
-}
-
-function rotatePts(pts,rot){
-
-return pts.map(p=>[
-p[0]*Math.cos(rot)-p[1]*Math.sin(rot),
-p[0]*Math.sin(rot)+p[1]*Math.cos(rot)
-])
+return[cx/pts.length,cy/pts.length]
 
 }
 
@@ -290,11 +269,9 @@ ctx.clearRect(0,0,canvas.width,canvas.height)
 
 let pts=calculatePoints()
 
-rotation=getRotation(pts)
-
-pts=rotatePts(pts,rotation)
-
 if(pts.length<2)return
+
+let center=centroid(pts)
 
 let xs=pts.map(p=>p[0])
 let ys=pts.map(p=>p[1])
@@ -340,6 +317,50 @@ let len=Math.sqrt(dx*dx+dy*dy)
 
 let nx=-dy/len
 let ny=dx/len
+
+let midx=(p1[0]+p2[0])/2
+let midy=(p1[1]+p2[1])/2
+
+let vx=center[0]-midx
+let vy=center[1]-midy
+
+if(nx*vx+ny*vy>0){
+nx*=-1
+ny*=-1
+}
+
+function setback(d,color){
+
+let a=[p1[0]+nx*d,p1[1]+ny*d]
+let b=[p2[0]+nx*d,p2[1]+ny*d]
+
+let s1=toScreen(a)
+let s2=toScreen(b)
+
+ctx.strokeStyle=color
+ctx.lineWidth=1
+ctx.setLineDash([6,6])
+
+ctx.beginPath()
+ctx.moveTo(s1[0],s1[1])
+ctx.lineTo(s2[0],s2[1])
+ctx.stroke()
+
+ctx.setLineDash([])
+
+}
+
+if(lines[i].setback){
+
+setback(6,"rgba(0,0,255,0.25)")
+setback(4.5,"rgba(0,200,0,0.25)")
+setback(3,"rgba(255,0,0,0.25)")
+setback(2,"rgba(255,200,0,0.25)")
+
+}
+
+if(lines[i].side1) setback(1,"rgba(120,120,120,0.35)")
+if(lines[i].side15) setback(1.5,"rgba(120,120,120,0.35)")
 
 let s1=toScreen(p1)
 let s2=toScreen(p2)
@@ -405,10 +426,6 @@ let pdf=new jsPDF("portrait","mm","a3")
 
 let pts=calculatePoints()
 
-rotation=getRotation(pts)
-
-pts=rotatePts(pts,rotation)
-
 let xs=pts.map(p=>p[0])
 let ys=pts.map(p=>p[1])
 
@@ -437,15 +454,6 @@ p1[0]*mmPerMeter+offsetX,
 (maxy-p1[1])*mmPerMeter+offsetY,
 p2[0]*mmPerMeter+offsetX,
 (maxy-p2[1])*mmPerMeter+offsetY
-)
-
-let mx=(p1[0]+p2[0])/2
-let my=(p1[1]+p2[1])/2
-
-pdf.text(
-lines[i].length.toFixed(2)+"m",
-mx*mmPerMeter+offsetX,
-(maxy-my)*mmPerMeter+offsetY
 )
 
 }
