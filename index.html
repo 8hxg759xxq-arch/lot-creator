@@ -199,6 +199,7 @@ let inputs=row.querySelectorAll("input")
 let type=row.querySelector("select").value
 
 let length=parseFloat(inputs[0].value)
+
 if(isNaN(length))return
 
 let d=parseFloat(inputs[1].value)||0
@@ -236,14 +237,11 @@ y+=l.length*Math.sin(direction)
 
 pts.push([x,y])
 
-let turn
+let turn = l.type==="internal"
+? Math.PI-l.angle
+: l.angle
 
-if(l.type==="internal")
-turn=Math.PI-l.angle
-else
-turn=l.angle
-
-direction-=turn
+direction -= turn
 
 })
 
@@ -284,14 +282,6 @@ p[0]*Math.sin(rot)+p[1]*Math.cos(rot)
 
 }
 
-function centroid(pts){
-
-let cx=0,cy=0
-pts.forEach(p=>{cx+=p[0];cy+=p[1]})
-return[cx/pts.length,cy/pts.length]
-
-}
-
 function draw(){
 
 readLines()
@@ -301,11 +291,10 @@ ctx.clearRect(0,0,canvas.width,canvas.height)
 let pts=calculatePoints()
 
 rotation=getRotation(pts)
+
 pts=rotatePts(pts,rotation)
 
 if(pts.length<2)return
-
-let center=centroid(pts)
 
 let xs=pts.map(p=>p[0])
 let ys=pts.map(p=>p[1])
@@ -417,6 +406,7 @@ let pdf=new jsPDF("portrait","mm","a3")
 let pts=calculatePoints()
 
 rotation=getRotation(pts)
+
 pts=rotatePts(pts,rotation)
 
 let xs=pts.map(p=>p[0])
@@ -432,21 +422,30 @@ let mmPerMeter=10
 let pageWidth=pdf.internal.pageSize.getWidth()
 let pageHeight=pdf.internal.pageSize.getHeight()
 
-let offsetX=(pageWidth-(maxx-minx)*mmPerMeter)/2 - minx*mmPerMeter
+let offsetX=(pageWidth-(maxx-minx)*mmPerMeter)/2-minx*mmPerMeter
 let offsetY=(pageHeight-(maxy-miny)*mmPerMeter)/2
+
+pdf.setDrawColor(200,0,0)
 
 for(let i=0;i<pts.length-1;i++){
 
 let p1=pts[i]
 let p2=pts[i+1]
 
-pdf.setDrawColor(200,0,0)
-
 pdf.line(
 p1[0]*mmPerMeter+offsetX,
 (maxy-p1[1])*mmPerMeter+offsetY,
 p2[0]*mmPerMeter+offsetX,
 (maxy-p2[1])*mmPerMeter+offsetY
+)
+
+let mx=(p1[0]+p2[0])/2
+let my=(p1[1]+p2[1])/2
+
+pdf.text(
+lines[i].length.toFixed(2)+"m",
+mx*mmPerMeter+offsetX,
+(maxy-my)*mmPerMeter+offsetY
 )
 
 }
@@ -460,20 +459,6 @@ addLineRow()
 addLineRow()
 
 draw()
-
-const divider=document.getElementById("divider")
-const panel=document.getElementById("panel")
-
-let resizing=false
-
-divider.addEventListener("mousedown",()=>resizing=true)
-
-document.addEventListener("mousemove",e=>{
-if(!resizing)return
-panel.style.width=e.clientX+"px"
-})
-
-document.addEventListener("mouseup",()=>resizing=false)
 
 </script>
 
