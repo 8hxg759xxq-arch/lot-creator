@@ -28,7 +28,7 @@ height:calc(100vh - 56px);
 }
 
 #panel{
-width:320px;
+width:340px;
 min-width:240px;
 max-width:700px;
 background:white;
@@ -66,7 +66,7 @@ text-align:center;
 }
 
 input{
-width:38px;
+width:40px;
 border:1px solid #cbd5e1;
 border-radius:4px;
 }
@@ -116,6 +116,7 @@ background:#64748b;
 </table>
 
 <button onclick="addLineRow()">Add Boundary</button>
+<button onclick="autoCloseLot()">Auto Close Lot</button>
 <button class="secondary" onclick="clearLot()">Clear</button>
 
 <h3>Export</h3>
@@ -156,9 +157,6 @@ row.innerHTML=`
 }
 
 function clearLot(){
-
-lines=[]
-rotation=0
 
 while(lineTable.rows.length>1){
 lineTable.deleteRow(1)
@@ -222,11 +220,47 @@ y+=l.length*Math.sin(direction)
 
 pts.push([x,y])
 
-direction-=l.angle
+let turn=Math.PI-l.angle
+
+direction-=turn
 
 })
 
 return pts
+
+}
+
+function autoCloseLot(){
+
+readLines()
+
+let pts=calculatePoints()
+
+let last=pts[pts.length-1]
+
+let dx=-last[0]
+let dy=-last[1]
+
+let length=Math.sqrt(dx*dx+dy*dy)
+
+let angle=Math.atan2(dy,dx)
+
+let deg=Math.abs(angle*180/Math.PI)
+
+let row=lineTable.insertRow()
+
+row.innerHTML=`
+<td><input value="${length.toFixed(2)}"></td>
+<td><input value="${Math.floor(deg)}"></td>
+<td><input value="0"></td>
+<td><input value="0"></td>
+<td><input type="checkbox"></td>
+<td><input type="checkbox"></td>
+<td><input type="checkbox"></td>
+<td><input type="checkbox"></td>
+`
+
+draw()
 
 }
 
@@ -244,7 +278,10 @@ let dy=p2[1]-p1[1]
 
 let ang=Math.atan2(dy,dx)
 
-return (Math.PI/2)-ang
+let rot1=(Math.PI/2)-ang
+let rot2=(-Math.PI/2)-ang
+
+return Math.abs(rot1)<Math.abs(rot2)?rot1:rot2
 
 }
 
@@ -318,12 +355,9 @@ return[
 ctx.beginPath()
 
 pts.forEach((p,i)=>{
-
 let s=toScreen(p)
-
 if(i===0)ctx.moveTo(s[0],s[1])
 else ctx.lineTo(s[0],s[1])
-
 })
 
 ctx.stroke()
@@ -341,53 +375,11 @@ let len=Math.sqrt(dx*dx+dy*dy)
 let nx=-dy/len
 let ny=dx/len
 
-let mid=[(p1[0]+p2[0])/2,(p1[1]+p2[1])/2]
-
-let vx=center[0]-mid[0]
-let vy=center[1]-mid[1]
-
-if(nx*vx+ny*vy<0){
-nx*=-1
-ny*=-1
-}
-
-function setback(d,color){
-
-let a=[p1[0]+nx*d,p1[1]+ny*d]
-let b=[p2[0]+nx*d,p2[1]+ny*d]
-
-let s1=toScreen(a)
-let s2=toScreen(b)
-
-ctx.strokeStyle=color
-ctx.setLineDash([6,6])
-
-ctx.beginPath()
-ctx.moveTo(s1[0],s1[1])
-ctx.lineTo(s2[0],s2[1])
-ctx.stroke()
-
-ctx.setLineDash([])
-
-}
-
-if(lines[i].setback){
-
-setback(6,"rgba(0,0,255,0.25)")
-setback(4.5,"rgba(0,200,0,0.25)")
-setback(3,"rgba(255,0,0,0.25)")
-setback(2,"rgba(255,200,0,0.25)")
-
-}
-
-if(lines[i].side1) setback(1,"rgba(120,120,120,0.4)")
-if(lines[i].side15) setback(1.5,"rgba(120,120,120,0.4)")
-
 let s1=toScreen(p1)
 let s2=toScreen(p2)
 
-let mx=(s1[0]+s2[0])/2 - nx*25
-let my=(s1[1]+s2[1])/2 - ny*25
+let mx=(s1[0]+s2[0])/2 + nx*25
+let my=(s1[1]+s2[1])/2 + ny*25
 
 ctx.fillText(lines[i].length.toFixed(2)+"m",mx,my)
 
@@ -409,8 +401,6 @@ rotation=getRotation(pts)
 
 pts=rotatePts(pts,rotation)
 
-let center=centroid(pts)
-
 let xs=pts.map(p=>p[0])
 let ys=pts.map(p=>p[1])
 
@@ -419,58 +409,18 @@ let maxx=Math.max(...xs)
 let miny=Math.min(...ys)
 let maxy=Math.max(...ys)
 
-let width=maxx-minx
-let height=maxy-miny
-
 let mmPerMeter=10
 
 let pageWidth=pdf.internal.pageSize.getWidth()
 let pageHeight=pdf.internal.pageSize.getHeight()
 
-let offsetX=(pageWidth-width*mmPerMeter)/2 - minx*mmPerMeter
-let offsetY=(pageHeight-height*mmPerMeter)/2
+let offsetX=(pageWidth-(maxx-minx)*mmPerMeter)/2 - minx*mmPerMeter
+let offsetY=(pageHeight-(maxy-miny)*mmPerMeter)/2
 
 for(let i=0;i<pts.length-1;i++){
 
 let p1=pts[i]
 let p2=pts[i+1]
-
-let dx=p2[0]-p1[0]
-let dy=p2[1]-p1[1]
-
-let len=Math.sqrt(dx*dx+dy*dy)
-
-let nx=-dy/len
-let ny=dx/len
-
-let mid=[(p1[0]+p2[0])/2,(p1[1]+p2[1])/2]
-
-let vx=center[0]-mid[0]
-let vy=center[1]-mid[1]
-
-if(nx*vx+ny*vy<0){
-nx*=-1
-ny*=-1
-}
-
-function setback(d,color){
-
-let a=[p1[0]+nx*d,p1[1]+ny*d]
-let b=[p2[0]+nx*d,p2[1]+ny*d]
-
-pdf.setDrawColor(color[0],color[1],color[2])
-pdf.setLineDash([2,2],0)
-
-pdf.line(
-a[0]*mmPerMeter+offsetX,
-(maxy-a[1])*mmPerMeter+offsetY,
-b[0]*mmPerMeter+offsetX,
-(maxy-b[1])*mmPerMeter+offsetY
-)
-
-pdf.setLineDash([])
-
-}
 
 pdf.setDrawColor(200,0,0)
 
@@ -480,18 +430,6 @@ p1[0]*mmPerMeter+offsetX,
 p2[0]*mmPerMeter+offsetX,
 (maxy-p2[1])*mmPerMeter+offsetY
 )
-
-if(lines[i].setback){
-
-setback(6,[0,0,255])
-setback(4.5,[0,200,0])
-setback(3,[255,0,0])
-setback(2,[255,200,0])
-
-}
-
-if(lines[i].side1) setback(1,[120,120,120])
-if(lines[i].side15) setback(1.5,[120,120,120])
 
 let mx=(p1[0]+p2[0])/2
 let my=(p1[1]+p2[1])/2
@@ -504,21 +442,7 @@ mx*mmPerMeter+offsetX,
 
 }
 
-let img=new Image()
-
-img.onload=function(){
-
-pdf.addImage(img,"PNG",pageWidth-108,pageHeight-33,100,25)
-
 pdf.save("site-plan.pdf")
-
-}
-
-img.onerror=function(){
-pdf.save("site-plan.pdf")
-}
-
-img.src="logos.png"
 
 }
 
